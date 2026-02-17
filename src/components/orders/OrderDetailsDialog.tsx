@@ -118,8 +118,7 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     serial_number,
                     image_url,
                     categories ( name )
-                ),
-                order_item_receipts ( id, signature_image_url, received_at )
+                )
             ),
             consent_form_id,
             receipt_pdf_url
@@ -128,7 +127,23 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
         .single();
 
     if (error) throw new Error(error.message);
-    return data as OrderDetail;
+
+    // Manually fetch order_item_receipts for each item
+    const orderItemsWithReceipts = await Promise.all(data.order_items.map(async (orderItem: any) => {
+        const { data: receipts, error: receiptsError } = await supabase
+            .from("order_item_receipts")
+            .select("id, signature_image_url, received_at")
+            .eq("order_id", orderId)
+            .eq("item_id", orderItem.item_id);
+
+        if (receiptsError) {
+            console.error("Error fetching receipts for item:", orderItem.item_id, receiptsError);
+            return { ...orderItem, order_item_receipts: [] };
+        }
+        return { ...orderItem, order_item_receipts: receipts };
+    }));
+
+    return { ...data, order_items: orderItemsWithReceipts } as OrderDetail;
 };
 
 const fetchConsentDetails = async (consentId: string): Promise<ConsentDetail> => {
