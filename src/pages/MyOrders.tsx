@@ -104,13 +104,17 @@ const MyOrders = () => {
 
   const activeOrders = orders?.filter(order => {
     const endDate = new Date(order.requested_end_date);
-    return !isPast(endDate, { now }) && order.status !== 'returned' && order.status !== 'cancelled' && order.status !== 'rejected';
+    return !isPast(endDate, { now }) && order.status !== 'returned' && order.status !== 'cancelled' && order.status !== 'rejected' && order.status !== 'pending';
   }) || [];
 
   const pastOrders = orders?.filter(order => {
     const endDate = new Date(order.requested_end_date);
-    return isPast(endDate, { now }) || order.status === 'returned' || order.status === 'cancelled' || order.status === 'rejected';
+    return isPast(endDate, { now }) || order.status === 'returned';
   }) || [];
+
+  const pendingOrders = orders?.filter(order => order.status === 'pending') || [];
+
+  const cancelledRejectedOrders = orders?.filter(order => order.status === 'cancelled' || order.status === 'rejected') || [];
 
   const renderOrderTable = (ordersToDisplay: Order[]) => (
     <div className="bg-white rounded-lg shadow overflow-x-auto">
@@ -186,15 +190,23 @@ const MyOrders = () => {
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="active">הזמנות פעילות ({activeOrders.length})</TabsTrigger>
-          <TabsTrigger value="past">הזמנות קודמות ({pastOrders.length})</TabsTrigger>
+          <TabsTrigger value="past">הזמנות עבר ({pastOrders.length})</TabsTrigger>
+          <TabsTrigger value="pending">ממתינות לאישור ({pendingOrders.length})</TabsTrigger>
+          <TabsTrigger value="cancelled_rejected">בוטלו/נדחו ({cancelledRejectedOrders.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="active">
           {renderOrderTable(activeOrders)}
         </TabsContent>
         <TabsContent value="past">
           {renderOrderTable(pastOrders)}
+        </TabsContent>
+        <TabsContent value="pending">
+          {renderOrderTable(pendingOrders)}
+        </TabsContent>
+        <TabsContent value="cancelled_rejected">
+          {renderOrderTable(cancelledRejectedOrders)}
         </TabsContent>
       </Tabs>
     </div>
