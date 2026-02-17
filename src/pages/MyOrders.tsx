@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format, isPast, isBefore } from "date-fns";
+import { format, isPast, isToday, isFuture, isBefore, isEqual } from "date-fns";
 import { he } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
@@ -102,14 +102,26 @@ const MyOrders = () => {
 
   const now = new Date();
 
-  const activeOrders = orders?.filter(order => {
+  const futureOrders = orders?.filter(order => {
+    const startDate = new Date(order.requested_start_date);
+    return isFuture(startDate, { now }) && order.status === 'approved';
+  }) || [];
+
+  const currentlyBorrowedOrders = orders?.filter(order => {
+    const startDate = new Date(order.requested_start_date);
     const endDate = new Date(order.requested_end_date);
-    return !isPast(endDate, { now }) && order.status !== 'returned' && order.status !== 'cancelled' && order.status !== 'rejected' && order.status !== 'pending';
+    return (isBefore(startDate, now) || isEqual(startDate, now)) && (isFuture(endDate, now) || isEqual(endDate, now)) && order.status === 'checked_out';
+  }) || [];
+
+  const todayActionsOrders = orders?.filter(order => {
+    const startDate = new Date(order.requested_start_date);
+    const endDate = new Date(order.requested_end_date);
+    return (isToday(startDate) && order.status === 'approved') || (isToday(endDate) && order.status === 'checked_out');
   }) || [];
 
   const pastOrders = orders?.filter(order => {
     const endDate = new Date(order.requested_end_date);
-    return isPast(endDate, { now }) || order.status === 'returned';
+    return isPast(endDate, { now }) && (order.status === 'returned' || order.status === 'checked_out');
   }) || [];
 
   const pendingOrders = orders?.filter(order => order.status === 'pending') || [];
@@ -189,15 +201,23 @@ const MyOrders = () => {
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
-      <Tabs defaultValue="active" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="active">הזמנות פעילות ({activeOrders.length})</TabsTrigger>
-          <TabsTrigger value="past">הזמנות עבר ({pastOrders.length})</TabsTrigger>
-          <TabsTrigger value="pending">ממתינות לאישור ({pendingOrders.length})</TabsTrigger>
+      <Tabs defaultValue="currently_borrowed" className="w-full">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="currently_borrowed">בהשאלה ({currentlyBorrowedOrders.length})</TabsTrigger>
+          <TabsTrigger value="today_actions">היום ({todayActionsOrders.length})</TabsTrigger>
+          <TabsTrigger value="future">עתידיות ({futureOrders.length})</TabsTrigger>
+          <TabsTrigger value="past">היסטוריה ({pastOrders.length})</TabsTrigger>
+          <TabsTrigger value="pending">ממתינות ({pendingOrders.length})</TabsTrigger>
           <TabsTrigger value="cancelled_rejected">בוטלו/נדחו ({cancelledRejectedOrders.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="active">
-          {renderOrderTable(activeOrders)}
+        <TabsContent value="currently_borrowed">
+          {renderOrderTable(currentlyBorrowedOrders)}
+        </TabsContent>
+        <TabsContent value="today_actions">
+          {renderOrderTable(todayActionsOrders)}
+        </TabsContent>
+        <TabsContent value="future">
+          {renderOrderTable(futureOrders)}
         </TabsContent>
         <TabsContent value="past">
           {renderOrderTable(pastOrders)}
