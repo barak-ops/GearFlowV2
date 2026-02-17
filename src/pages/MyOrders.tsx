@@ -11,12 +11,27 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { format, isPast, isBefore } from "date-fns";
 import { he } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
-import { OrderDetailsDialog } from "@/components/orders/OrderDetailsDialog"; // Import the dialog component
+import { OrderDetailsDialog } from "@/components/orders/OrderDetailsDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React from "react";
+
+interface Order {
+  id: string;
+  created_at: string;
+  requested_start_date: string;
+  requested_end_date: string;
+  status: 'pending' | 'approved' | 'rejected' | 'checked_out' | 'returned' | 'cancelled';
+  notes: string | null;
+  profiles: { first_name: string | null; last_name: string | null } | null;
+  is_recurring: boolean;
+  recurrence_count: number | null;
+  recurrence_interval: 'day' | 'week' | 'month' | null;
+}
 
 const statusTranslations: Record<string, string> = {
     pending: 'ממתין לאישור',
@@ -85,24 +100,35 @@ const MyOrders = () => {
     return <div>שגיאה בטעינת ההזמנות: {error.message}</div>;
   }
 
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>תאריך יצירה</TableHead>
-              <TableHead>תאריך התחלה</TableHead>
-              <TableHead>תאריך סיום</TableHead>
-              <TableHead>סטטוס</TableHead>
-              <TableHead>מחזוריות</TableHead>
-              <TableHead>הערות</TableHead>
-              <TableHead className="text-right">פעולות</TableHead> {/* New TableHead for actions */}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orders?.map((order) => (
+  const now = new Date();
+
+  const activeOrders = orders?.filter(order => {
+    const endDate = new Date(order.requested_end_date);
+    return !isPast(endDate, { now }) && order.status !== 'returned' && order.status !== 'cancelled' && order.status !== 'rejected';
+  }) || [];
+
+  const pastOrders = orders?.filter(order => {
+    const endDate = new Date(order.requested_end_date);
+    return isPast(endDate, { now }) || order.status === 'returned' || order.status === 'cancelled' || order.status === 'rejected';
+  }) || [];
+
+  const renderOrderTable = (ordersToDisplay: Order[]) => (
+    <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>תאריך יצירה</TableHead>
+            <TableHead>תאריך התחלה</TableHead>
+            <TableHead>תאריך סיום</TableHead>
+            <TableHead>סטטוס</TableHead>
+            <TableHead>מחזוריות</TableHead>
+            <TableHead>הערות</TableHead>
+            <TableHead className="text-right">פעולות</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {ordersToDisplay.length > 0 ? (
+            ordersToDisplay.map((order) => (
               <TableRow key={order.id}>
                 <TableCell>{format(new Date(order.created_at), "PPP", { locale: he })}</TableCell>
                 <TableCell>{format(new Date(order.requested_start_date), "PPP", { locale: he })}</TableCell>
@@ -143,11 +169,34 @@ const MyOrders = () => {
                     <OrderDetailsDialog orderId={order.id} userName={`${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim()} />
                 </TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {orders?.length === 0 && <p className="text-center p-8 text-muted-foreground">לא נמצאו הזמנות.</p>}
-      </div>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center p-8 text-muted-foreground">
+                לא נמצאו הזמנות בקטגוריה זו.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active">הזמנות פעילות ({activeOrders.length})</TabsTrigger>
+          <TabsTrigger value="past">הזמנות קודמות ({pastOrders.length})</TabsTrigger>
+        </TabsList>
+        <TabsContent value="active">
+          {renderOrderTable(activeOrders)}
+        </TabsContent>
+        <TabsContent value="past">
+          {renderOrderTable(pastOrders)}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
