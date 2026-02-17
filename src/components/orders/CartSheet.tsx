@@ -8,7 +8,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useCart } => "@/contexts/CartContext";
+import { useCart } from "@/contexts/CartContext"; // Corrected this line
 import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert, RotateCcw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
