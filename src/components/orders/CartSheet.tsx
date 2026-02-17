@@ -161,7 +161,9 @@ export function CartSheet() {
       const consentsToInsert = [];
       for (const template of mandatoryTemplates) {
         const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
-        if (!hasConsentedBefore) { // Only process if not consented before
+        
+        // If user has not consented before, we need a new signature
+        if (!hasConsentedBefore) { 
             const signatureDataUrl = signatures[template.id];
             if (!signatureDataUrl) {
                 throw new Error(`חתימה חסרה עבור טופס: ${template.name}`);
