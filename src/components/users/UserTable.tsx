@@ -18,9 +18,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Profile } from "@/hooks/useProfile";
 import { EditUserDialog } from "./EditUserDialog";
+import { Badge } from "@/components/ui/badge";
 
 interface UserProfile extends Profile {
-    email: string; // Add email to the UserProfile interface
+    email: string;
 }
 
 interface UserTableProps {
@@ -62,9 +63,9 @@ export function UserTable({ users }: UserTableProps) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>שם פרטי</TableHead>
-          <TableHead>שם משפחה</TableHead>
-          <TableHead>אימייל</TableHead> {/* Changed from 'אימייל (מזהה)' to 'אימייל' */}
+          <TableHead>שם מלא</TableHead>
+          <TableHead>אימייל</TableHead>
+          <TableHead>מחסן משויך</TableHead>
           <TableHead className="text-right">תפקיד</TableHead>
           <TableHead className="text-right">פעולות</TableHead>
         </TableRow>
@@ -72,16 +73,24 @@ export function UserTable({ users }: UserTableProps) {
       <TableBody>
         {users?.map((user) => (
           <TableRow key={user.id}>
-            <TableCell className="font-medium">{user.first_name || '-'}</TableCell>
-            <TableCell>{user.last_name || '-'}</TableCell>
-            <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell> {/* Display full email */}
+            <TableCell className="font-medium">
+                {user.first_name || ''} {user.last_name || ''}
+            </TableCell>
+            <TableCell className="text-sm text-muted-foreground">{user.email}</TableCell>
+            <TableCell>
+                {user.warehouses?.name ? (
+                    <Badge variant="outline">{user.warehouses.name}</Badge>
+                ) : (
+                    <span className="text-muted-foreground text-xs">ללא מחסן</span>
+                )}
+            </TableCell>
             <TableCell className="text-right">
               <Select 
                 onValueChange={(value) => handleRoleChange(user.id, value)} 
                 defaultValue={user.role}
                 disabled={updateRoleMutation.isPending}
               >
-                <SelectTrigger className="w-[180px] ml-auto">
+                <SelectTrigger className="w-[140px] ml-auto">
                   <SelectValue placeholder="בחר תפקיד" />
                 </SelectTrigger>
                 <SelectContent>

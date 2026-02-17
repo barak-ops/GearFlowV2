@@ -20,12 +20,19 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { useState } from "react";
 import { useSession } from "@/contexts/SessionContext";
 
-// IMPORTANT: Replace with your actual Edge Function URL
 const CREATE_USER_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-user";
 
 const userSchema = z.object({
@@ -33,12 +40,24 @@ const userSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים."),
+  warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
+
+const fetchWarehouses = async () => {
+  const { data, error } = await supabase.from("warehouses").select('id, name').order("name", { ascending: true });
+  if (error) throw error;
+  return data;
+};
 
 export function AddUserDialog() {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { session } = useSession();
+
+  const { data: warehouses } = useQuery({
+    queryKey: ["warehouses"],
+    queryFn: fetchWarehouses,
+  });
 
   const form = useForm<z.infer<typeof userSchema>>({
     resolver: zodResolver(userSchema),
@@ -47,6 +66,7 @@ export function AddUserDialog() {
       last_name: "",
       email: "",
       password: "",
+      warehouse_id: "",
     },
   });
 
@@ -72,7 +92,6 @@ export function AddUserDialog() {
     },
     onSuccess: () => {
       showSuccess("המשתמש נוצר בהצלחה!");
-      // Force refetch of the profiles list
       queryClient.invalidateQueries({ queryKey: ["profiles"] });
       form.reset();
       setIsOpen(false);
@@ -148,6 +167,31 @@ export function AddUserDialog() {
                   <FormControl>
                     <Input placeholder="סיסמה זמנית (מינימום 6 תווים)" type="password" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="warehouse_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>שיוך למחסן</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="בחר מחסן (אופציונלי)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">ללא מחסן</SelectItem>
+                      {warehouses?.map((warehouse) => (
+                        <SelectItem key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

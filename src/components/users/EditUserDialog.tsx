@@ -20,7 +20,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { useState } from "react";
 import { Profile } from "@/hooks/useProfile";
@@ -36,16 +43,28 @@ const editUserSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים.").optional().or(z.literal('')),
+  warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
 
 interface EditUserDialogProps {
     user: Profile & { email: string };
 }
 
+const fetchWarehouses = async () => {
+  const { data, error } = await supabase.from("warehouses").select('id, name').order("name", { ascending: true });
+  if (error) throw error;
+  return data;
+};
+
 export function EditUserDialog({ user }: EditUserDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { session } = useSession();
+
+  const { data: warehouses } = useQuery({
+    queryKey: ["warehouses"],
+    queryFn: fetchWarehouses,
+  });
 
   const form = useForm<z.infer<typeof editUserSchema>>({
     resolver: zodResolver(editUserSchema),
@@ -54,6 +73,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       last_name: user.last_name || "",
       email: user.email || "",
       password: "",
+      warehouse_id: user.warehouse_id || "",
     },
   });
 
@@ -67,6 +87,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         .update({ 
             first_name: values.first_name, 
             last_name: values.last_name,
+            warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
             updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
@@ -119,6 +140,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         last_name: user.last_name || "",
         email: user.email || "",
         password: "",
+        warehouse_id: user.warehouse_id || "",
       });
     }
     setIsOpen(open);
@@ -188,6 +210,31 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                   <FormControl>
                     <Input placeholder="השאר ריק כדי לא לשנות" type="password" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="warehouse_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>שיוך למחסן</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="בחר מחסן (אופציונלי)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">ללא מחסן</SelectItem>
+                      {warehouses?.map((warehouse) => (
+                        <SelectItem key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

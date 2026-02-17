@@ -9,6 +9,8 @@ export interface Profile {
   role: 'student' | 'manager';
   avatar_url: string | null;
   updated_at: string | null;
+  warehouse_id: string | null;
+  warehouses?: { name: string } | null;
 }
 
 interface ProfileResult extends Profile {
@@ -18,7 +20,16 @@ interface ProfileResult extends Profile {
 const fetchProfile = async (userId: string): Promise<ProfileResult> => {
     const { data, error } = await supabase
         .from('profiles')
-        .select(`id, first_name, last_name, role, avatar_url, updated_at`)
+        .select(`
+            id, 
+            first_name, 
+            last_name, 
+            role, 
+            avatar_url, 
+            updated_at, 
+            warehouse_id,
+            warehouses ( name )
+        `)
         .eq('id', userId)
         .single();
 
@@ -32,6 +43,7 @@ const fetchProfile = async (userId: string): Promise<ProfileResult> => {
                 role: 'student',
                 avatar_url: null,
                 updated_at: null,
+                warehouse_id: null,
                 isMissing: true,
              };
         }
