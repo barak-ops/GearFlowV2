@@ -8,7 +8,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/contexts/CartContext"; // Corrected this line
+import { useCart } from "@/contexts/CartContext";
 import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert, RotateCcw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
@@ -60,7 +60,7 @@ export function CartSheet() {
   const { cart, removeFromCart, clearCart } = useCart();
   const { user, session } = useSession();
   const { profile } = useProfile();
-  const [startDate, setStartDate] = useState<Date>(new Date()); // Default to today
+  const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [notes, setNotes] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -216,7 +216,7 @@ export function CartSheet() {
       
       showSuccess(message);
       clearCart();
-      setStartDate(new Date()); // Reset to today
+      setStartDate(undefined);
       setEndDate(undefined);
       setNotes("");
       setIsRecurring(false);
@@ -444,7 +444,7 @@ export function CartSheet() {
                                     id={`consent-${template.id}`} 
                                     checked={consentsAccepted[template.id] || false}
                                     onCheckedChange={(checked) => handleConsentChange(template.id, !!checked)}
-                                    disabled={hasConsentedBefore}
+                                    disabled={hasConsentedBefore} {/* Only disable if already consented */}
                                 />
                                 <Label htmlFor={`consent-${template.id}`} className="text-xs cursor-pointer">
                                     אני מאשר/ת שקראתי והבנתי את תנאי הטופס
@@ -488,7 +488,7 @@ export function CartSheet() {
                                     value={fullNamesSigned[template.id] || ''}
                                     onChange={(e) => handleFullNameSignedChange(template.id, e.target.value)}
                                     placeholder="הקלד את שמך המלא"
-                                    disabled={hasConsentedBefore}
+                                    disabled={hasConsentedBefore} {/* Only disable if already consented */}
                                 />
                             </div>
                         </div>
