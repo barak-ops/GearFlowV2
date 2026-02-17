@@ -1,3 +1,6 @@
+-- Drop table if it already exists to prevent "relation already exists" errors
+DROP TABLE IF EXISTS public.user_consents CASCADE;
+
 -- Create user_consents table
 CREATE TABLE public.user_consents (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -21,11 +24,11 @@ FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own consents" ON public.user_consents
 FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
--- Prevent users from updating their consents (consents should be immutable once given)
+-- Prevent user updates to consents (consents should be immutable once given)
 CREATE POLICY "Prevent user updates to consents" ON public.user_consents
 FOR UPDATE TO authenticated USING (false);
 
--- Prevent users from deleting their consents (consents should be immutable once given)
+-- Prevent user deletes of consents (consents should be immutable once given)
 CREATE POLICY "Prevent user deletes of consents" ON public.user_consents
 FOR DELETE TO authenticated USING (false);
 
@@ -38,29 +41,54 @@ CREATE TRIGGER user_consents_audit_trigger
 AFTER INSERT OR UPDATE OR DELETE ON public.user_consents
 FOR EACH ROW EXECUTE FUNCTION public.audit_trigger();
 
--- Add consent_form_id to orders table (if not already added)
-ALTER TABLE public.orders
-ADD COLUMN consent_form_id UUID REFERENCES public.consent_templates(id) ON DELETE SET NULL;
+-- Add consent_form_id to orders table if it doesn't exist
+DO $$ BEGIN
+    ALTER TABLE public.orders
+    ADD COLUMN consent_form_id UUID REFERENCES public.consent_templates(id) ON DELETE SET NULL;
+EXCEPTION
+    WHEN duplicate_column THEN RAISE NOTICE 'column consent_form_id already exists in public.orders.';
+END $$;
 
 -- Add a policy to allow managers to update consent_form_id on orders
-CREATE POLICY "Managers can update consent_form_id on orders" ON public.orders
-FOR UPDATE TO authenticated
-USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'))
-WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'));
+-- This policy might already exist, so we'll try to create it. If it fails, it's fine.
+DO $$ BEGIN
+    CREATE POLICY "Managers can update consent_form_id on orders" ON public.orders
+    FOR UPDATE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'))
+    WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'));
+EXCEPTION
+    WHEN duplicate_object THEN RAISE NOTICE 'policy "Managers can update consent_form_id on orders" already exists.';
+END $$;
 
 -- Add policies for students to view/insert orders with consent_form_id
-CREATE POLICY "Users can select orders with consent_form_id" ON public.orders
-FOR SELECT TO authenticated USING (auth.uid() = user_id);
+DO $$ BEGIN
+    CREATE POLICY "Users can select orders with consent_form_id" ON public.orders
+    FOR SELECT TO authenticated USING (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN RAISE NOTICE 'policy "Users can select orders with consent_form_id" already exists.';
+END $$;
 
-CREATE POLICY "Users can insert orders with consent_form_id" ON public.orders
-FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+    CREATE POLICY "Users can insert orders with consent_form_id" ON public.orders
+    FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+EXCEPTION
+    WHEN duplicate_object THEN RAISE NOTICE 'policy "Users can insert orders with consent_form_id" already exists.';
+END $$;
 
--- Add is_receipt_form to consent_templates table
-ALTER TABLE public.consent_templates
-ADD COLUMN is_receipt_form BOOLEAN DEFAULT FALSE;
+-- Add is_receipt_form to consent_templates table if it doesn't exist
+DO $$ BEGIN
+    ALTER TABLE public.consent_templates
+    ADD COLUMN is_receipt_form BOOLEAN DEFAULT FALSE;
+EXCEPTION
+    WHEN duplicate_column THEN RAISE NOTICE 'column is_receipt_form already exists in public.consent_templates.';
+END $$;
 
 -- Add a policy to allow managers to update is_receipt_form on consent_templates
-CREATE POLICY "Managers can update is_receipt_form on consent_templates" ON public.consent_templates
-FOR UPDATE TO authenticated
-USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'))
-WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'));
+DO $$ BEGIN
+    CREATE POLICY "Managers can update is_receipt_form on consent_templates" ON public.consent_templates
+    FOR UPDATE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'))
+    WITH CHECK (EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'manager'));
+EXCEPTION
+    WHEN duplicate_object THEN RAISE NOTICE 'policy "Managers can update is_receipt_form on consent_templates" already exists.';
+END $$;
