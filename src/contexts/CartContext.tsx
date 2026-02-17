@@ -14,6 +14,7 @@ interface EquipmentItem {
   categories: { name: string } | null;
   image_url: string | null;
   category_id: string;
+  consent_form_id: string | null; // New field
 }
 
 interface CartContextType {

@@ -32,6 +32,7 @@ interface EquipmentItem {
   categories: { name: string } | null;
   image_url: string | null;
   category_id: string;
+  consent_form_id: string | null; // New field
 }
 
 const fetchEquipment = async () => {
@@ -43,6 +44,7 @@ const fetchEquipment = async () => {
       status_id,
       image_url,
       category_id,
+      consent_form_id,
       categories ( name ),
       equipment_statuses ( id, name, is_rentable )
     `);
