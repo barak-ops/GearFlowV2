@@ -431,7 +431,7 @@ export function CartSheet() {
                     {mandatoryTemplates.map((template) => {
                         const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
                         const currentSignatureUrl = userConsents?.find(uc => uc.consent_template_id === template.id)?.signature_image_url;
-                        const currentFullNameSigned = userConsents?.find(uc => uc.consent_template_id === template.id)?.full_name_signed;
+                        // const currentFullNameSigned = userConsents?.find(uc => uc.consent_template_id === template.id)?.full_name_signed; // Not used directly here
 
                         return (
                         <div key={template.id} className="space-y-2 border p-3 rounded-md bg-red-50/50">
@@ -460,6 +460,7 @@ export function CartSheet() {
                                     ) : (
                                         <>
                                             <SignatureCanvas
+                                                key={`sig-canvas-${template.id}`} // Added key for proper re-rendering
                                                 ref={(ref) => sigCanvasRefs.current[template.id] = ref}
                                                 penColor='black'
                                                 canvasProps={{ width: 350, height: 100, className: 'sigCanvas' }}
