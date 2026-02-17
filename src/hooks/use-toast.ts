@@ -1,3 +1,4 @@
+import * as React from "react";
 import { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
@@ -174,7 +175,7 @@ function useToast() {
         listeners.splice(index, 1);
       }
     };
-  }, [state]);
+  }, []); // Added empty dependency array to useEffect
 
   return {
     ...state,
