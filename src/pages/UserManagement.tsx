@@ -21,8 +21,16 @@ const fetchAllProfiles = async (accessToken: string) => {
   });
 
   if (!response.ok) {
-    const result = await response.json();
-    throw new Error(result.error || "שגיאה בשליפת רשימת המשתמשים.");
+    let errorMessage = "שגיאה בשליפת רשימת המשתמשים.";
+    try {
+      const result = await response.json();
+      errorMessage = result.error || errorMessage;
+    } catch (e) {
+      // If response is not JSON (like "Unauthorized" plain text)
+      const text = await response.text();
+      errorMessage = text || errorMessage;
+    }
+    throw new Error(errorMessage);
   }
   
   return await response.json() as UserProfile[];
@@ -34,7 +42,7 @@ const UserManagement = () => {
   const { data: profiles, isLoading, error } = useQuery({
     queryKey: ["profiles"],
     queryFn: () => fetchAllProfiles(session!.access_token),
-    enabled: !!session, // Only run if session exists
+    enabled: !!session,
   });
 
   if (isLoading) {
@@ -46,7 +54,17 @@ const UserManagement = () => {
   }
 
   if (error) {
-    return <div>שגיאה בטעינת רשימת המשתמשים: {error.message}</div>;
+    return (
+      <div className="p-8 text-center">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">שגיאה: </strong>
+          <span className="block sm:inline">{error.message}</span>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          ודא שפונקציות הקצה (Edge Functions) פרוסות ומוגדרות כראוי ב-Supabase.
+        </p>
+      </div>
+    );
   }
 
   return (
