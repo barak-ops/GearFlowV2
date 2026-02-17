@@ -444,7 +444,7 @@ export function CartSheet() {
                                     id={`consent-${template.id}`} 
                                     checked={consentsAccepted[template.id] || false}
                                     onCheckedChange={(checked) => handleConsentChange(template.id, !!checked)}
-                                    disabled={hasConsentedBefore} {/* Only disable if already consented */}
+                                    disabled={hasConsentedBefore}
                                 />
                                 <Label htmlFor={`consent-${template.id}`} className="text-xs cursor-pointer">
                                     אני מאשר/ת שקראתי והבנתי את תנאי הטופס
@@ -488,7 +488,7 @@ export function CartSheet() {
                                     value={fullNamesSigned[template.id] || ''}
                                     onChange={(e) => handleFullNameSignedChange(template.id, e.target.value)}
                                     placeholder="הקלד את שמך המלא"
-                                    disabled={hasConsentedBefore} {/* Only disable if already consented */}
+                                    disabled={hasConsentedBefore}
                                 />
                             </div>
                         </div>
