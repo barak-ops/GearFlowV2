@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
-import { ShoppingCart, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import React, { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { showError, showSuccess } from "@/utils/toast";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/contexts/SessionContext";
@@ -31,8 +31,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 
 const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
+
+const fetchMandatoryTemplates = async () => {
+    const { data, error } = await supabase
+        .from("consent_templates")
+        .select("id, name, content")
+        .eq("is_mandatory", true);
+    if (error) throw error;
+    return data;
+};
 
 export function CartSheet() {
   const { cart, removeFromCart, clearCart } = useCart();
@@ -44,7 +55,15 @@ export function CartSheet() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceCount, setRecurrenceCount] = useState(1);
   const [recurrenceInterval, setRecurrenceInterval] = useState<'day' | 'week' | 'month'>('week');
+  const [consentsAccepted, setConsentsAccepted] = useState<Record<string, boolean>>({});
+  
   const queryClient = useQueryClient();
+
+  const { data: mandatoryTemplates } = useQuery({
+    queryKey: ["mandatory-templates"],
+    queryFn: fetchMandatoryTemplates,
+    enabled: isOpen && cart.length > 0,
+  });
 
   const createOrderMutation = useMutation({
     mutationFn: async ({ startDate, endDate, notes, isRecurring, recurrenceCount, recurrenceInterval }: { 
@@ -96,6 +115,7 @@ export function CartSheet() {
       setNotes("");
       setIsRecurring(false);
       setRecurrenceCount(1);
+      setConsentsAccepted({});
       setIsOpen(false);
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
@@ -119,6 +139,13 @@ export function CartSheet() {
         return;
     }
 
+    // Check if all mandatory templates are accepted
+    const allAccepted = mandatoryTemplates?.every(t => consentsAccepted[t.id]) ?? true;
+    if (!allAccepted) {
+        showError("עליך לאשר את כל טפסי ההסכמה הנדרשים.");
+        return;
+    }
+
     createOrderMutation.mutate({ 
         startDate, 
         endDate, 
@@ -127,6 +154,10 @@ export function CartSheet() {
         recurrenceCount, 
         recurrenceInterval 
     });
+  };
+
+  const handleConsentChange = (templateId: string, checked: boolean) => {
+    setConsentsAccepted(prev => ({ ...prev, [templateId]: checked }));
   };
 
   return (
@@ -141,73 +172,73 @@ export function CartSheet() {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="flex flex-col">
+      <SheetContent className="flex flex-col sm:max-w-md">
         <SheetHeader>
           <SheetTitle>סל בקשות</SheetTitle>
           <SheetDescription>
             אלו הפריטים שבחרת. בחר תאריכים ושלח את הבקשה לאישור.
           </SheetDescription>
         </SheetHeader>
-        <div className="flex-grow overflow-y-auto">
+        <ScrollArea className="flex-grow pr-4">
           {cart.length === 0 ? (
             <p className="text-muted-foreground text-center mt-8">הסל ריק.</p>
           ) : (
-            <div className="space-y-4">
-              {cart.map((item) => (
-                <div key={item.id} className="flex justify-between items-center">
-                  <span>{item.name}</span>
-                  <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        {cart.length > 0 && (
-          <>
-            <Separator className="my-4" />
-            <div className="space-y-4">
-              <h3 className="font-semibold">תאריכי השאלה</h3>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="ml-2 h-4 w-4" />
-                    {startDate ? format(startDate, "PPP", { locale: he }) : <span>תאריך התחלה</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
-                </PopoverContent>
-              </Popover>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="ml-2 h-4 w-4" />
-                    {endDate ? format(endDate, "PPP", { locale: he }) : <span>תאריך סיום</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
-                </PopoverContent>
-              </Popover>
-            </div>
+            <div className="space-y-6 pb-8">
+              <div className="space-y-2">
+                <h3 className="font-semibold">פריטים בסל</h3>
+                {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center bg-secondary/30 p-2 rounded-md">
+                    <span className="text-sm">{item.name}</span>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeFromCart(item.id)}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                    </div>
+                ))}
+              </div>
 
-            <Separator className="my-4" />
+              <Separator />
 
-            <div className="space-y-4">
+              <div className="space-y-4">
+                <h3 className="font-semibold">תאריכי השאלה</h3>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !startDate && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="ml-2 h-4 w-4" />
+                        {startDate ? format(startDate, "PPP", { locale: he }) : <span>תאריך התחלה</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+                    </PopoverContent>
+                </Popover>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !endDate && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="ml-2 h-4 w-4" />
+                        {endDate ? format(endDate, "PPP", { locale: he }) : <span>תאריך סיום</span>}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+                    </PopoverContent>
+                </Popover>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
                 <div className="flex items-center space-x-2 space-x-reverse">
                     <Checkbox 
                         id="recurring" 
@@ -222,7 +253,7 @@ export function CartSheet() {
                 {isRecurring && (
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label htmlFor="count">מספר פעמים (1-30)</Label>
+                            <Label htmlFor="count">מספר פעמים</Label>
                             <Input 
                                 id="count"
                                 type="number"
@@ -250,22 +281,55 @@ export function CartSheet() {
                         </div>
                     </div>
                 )}
-            </div>
+              </div>
 
-            <div className="space-y-2 mt-4">
-                <h3 className="font-semibold">הערות לבקשה (אופציונלי)</h3>
+              <Separator />
+
+              {/* Mandatory Consent Forms */}
+              {mandatoryTemplates && mandatoryTemplates.length > 0 && (
+                <div className="space-y-4">
+                    <h3 className="font-semibold flex items-center gap-2 text-red-600">
+                        <ShieldAlert className="h-5 w-5" />
+                        טפסי הסכמה (חובה)
+                    </h3>
+                    {mandatoryTemplates.map((template) => (
+                        <div key={template.id} className="space-y-2 border p-3 rounded-md bg-red-50/50">
+                            <h4 className="font-medium text-sm">{template.name}</h4>
+                            <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs">
+                                <p className="whitespace-pre-wrap">{template.content}</p>
+                            </ScrollArea>
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                                <Checkbox 
+                                    id={`consent-${template.id}`} 
+                                    checked={consentsAccepted[template.id] || false}
+                                    onCheckedChange={(checked) => handleConsentChange(template.id, !!checked)}
+                                />
+                                <Label htmlFor={`consent-${template.id}`} className="text-xs cursor-pointer">
+                                    אני מאשר/ת שקראתי והבנתי את תנאי הטופס
+                                </Label>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <h3 className="font-semibold">הערות לבקשה</h3>
                 <Textarea
-                placeholder="הערות מיוחדות, בקשות ספציפיות וכו'..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                    placeholder="הערות מיוחדות..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
                 />
+              </div>
             </div>
-            <SheetFooter className="mt-4">
-              <Button onClick={handleSubmit} className="w-full" disabled={createOrderMutation.isPending}>
-                {createOrderMutation.isPending ? "שולח בקשה..." : "שלח בקשה לאישור"}
-              </Button>
-            </SheetFooter>
-          </>
+          )}
+        </ScrollArea>
+        {cart.length > 0 && (
+          <SheetFooter className="mt-auto pt-4">
+            <Button onClick={handleSubmit} className="w-full" disabled={createOrderMutation.isPending}>
+              {createOrderMutation.isPending ? "שולח בקשה..." : "שלח בקשה לאישור"}
+            </Button>
+          </SheetFooter>
         )}
       </SheetContent>
     </Sheet>

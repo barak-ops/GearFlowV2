@@ -20,16 +20,19 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const consentTemplateSchema = z.object({
   name: z.string().min(2, "שם התבנית חובה."),
   content: z.string().min(50, "תוכן התבנית חייב להיות לפחות 50 תווים."),
+  is_mandatory: z.boolean().default(false),
 });
 
 export function ConsentTemplateAddDialog() {
@@ -41,6 +44,7 @@ export function ConsentTemplateAddDialog() {
     defaultValues: {
       name: "",
       content: "",
+      is_mandatory: false,
     },
   });
 
@@ -109,6 +113,26 @@ export function ConsentTemplateAddDialog() {
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="is_mandatory"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-x-reverse rounded-lg border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>טופס חובה</FormLabel>
+                    <FormDescription>
+                      סמן אם טופס זה חייב באישור המשתמש לפני שליחת בקשת השאלה.
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />
