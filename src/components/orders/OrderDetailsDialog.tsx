@@ -435,7 +435,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                     <TableHead>פריט</TableHead>
                                     <TableHead>קטגוריה</TableHead>
                                     <TableHead>מספר סידורי</TableHead>
-                                    <TableHead className="text-center">התקבל</TableHead> {/* New column */}
+                                    <TableHead className="text-center">התקבל</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -451,7 +451,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                             <Checkbox
                                                 checked={receivedItems.has(item.item_id)}
                                                 onCheckedChange={(checked) => handleItemReceivedChange(item.item_id, !!checked)}
-                                                disabled={order.status === 'checked_out' || order.status === 'returned'} // Disable if already checked out or returned
+                                                disabled={order.status === 'checked_out' || order.status === 'returned'}
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -592,7 +592,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 <DialogFooter>
                     {order?.status === 'approved' && order.order_items.length > 0 && order.order_items.every(item => receivedItems.has(item.item_id)) && !isCustomerSigned && (
                         <Button 
-                            onClick={() => generateAndSignReceiptMutation.mutate("")} // Empty string for signature as it's already handled
+                            onClick={handleSignReceipt} // Call handleSignReceipt directly
                             disabled={generateAndSignReceiptMutation.isPending}
                         >
                             {generateAndSignReceiptMutation.isPending ? "מעדכן סטטוס..." : "השכר ציוד"}
