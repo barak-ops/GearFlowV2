@@ -9,14 +9,14 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
-import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
+import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert, RotateCcw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { showError, showSuccess } from "@/utils/toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
+import { useProfile } from "@/hooks/useProfile";
+import SignatureCanvas from 'react-signature-canvas';
 
 const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
 
@@ -49,16 +50,16 @@ const fetchUserConsents = async (userId: string | undefined) => {
     if (!userId) return [];
     const { data, error } = await supabase
         .from("user_consents")
-        .select("consent_template_id")
+        .select("consent_template_id, signature_image_url, full_name_signed")
         .eq("user_id", userId);
     if (error) throw error;
-    return data.map(c => c.consent_template_id);
+    return data;
 };
 
 export function CartSheet() {
   const { cart, removeFromCart, clearCart } = useCart();
   const { user, session } = useSession();
-  const { profile } = useProfile(); // Get user profile for full name
+  const { profile } = useProfile();
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [notes, setNotes] = useState("");
@@ -67,7 +68,9 @@ export function CartSheet() {
   const [recurrenceCount, setRecurrenceCount] = useState(1);
   const [recurrenceInterval, setRecurrenceInterval] = useState<'day' | 'week' | 'month'>('week');
   const [consentsAccepted, setConsentsAccepted] = useState<Record<string, boolean>>({});
-  const [signatures, setSignatures] = useState<Record<string, string>>({}); // New state for signatures
+  const [signatures, setSignatures] = useState<Record<string, string>>({}); // Stores Base64 image data or URL
+  const [fullNamesSigned, setFullNamesSigned] = useState<Record<string, string>>({}); // Stores full name typed
+  const sigCanvasRefs = useRef<Record<string, SignatureCanvas | null>>({});
   
   const queryClient = useQueryClient();
 
@@ -79,7 +82,7 @@ export function CartSheet() {
 
   const mandatoryTemplates = allConsentTemplates?.filter(t => t.is_mandatory) || [];
 
-  const { data: userConsentedTemplateIds, refetch: refetchUserConsents } = useQuery({
+  const { data: userConsents, refetch: refetchUserConsents } = useQuery({
     queryKey: ["user-consents", user?.id],
     queryFn: () => fetchUserConsents(user?.id),
     enabled: !!user && isOpen && cart.length > 0,
@@ -88,22 +91,59 @@ export function CartSheet() {
   const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
 
   useEffect(() => {
-    if (isOpen && userConsentedTemplateIds) {
+    if (isOpen && userConsents) {
         const initialConsents: Record<string, boolean> = {};
         const initialSignatures: Record<string, string> = {};
+        const initialFullNamesSigned: Record<string, string> = {};
+
         mandatoryTemplates.forEach(template => {
-            if (userConsentedTemplateIds.includes(template.id)) {
+            const existingConsent = userConsents.find(uc => uc.consent_template_id === template.id);
+            if (existingConsent) {
                 initialConsents[template.id] = true;
-                initialSignatures[template.id] = fullName; // Pre-fill if already consented
+                initialSignatures[template.id] = existingConsent.signature_image_url || '';
+                initialFullNamesSigned[template.id] = existingConsent.full_name_signed || '';
             } else {
                 initialConsents[template.id] = false;
                 initialSignatures[template.id] = '';
+                initialFullNamesSigned[template.id] = '';
             }
         });
         setConsentsAccepted(initialConsents);
         setSignatures(initialSignatures);
+        setFullNamesSigned(initialFullNamesSigned);
     }
-  }, [isOpen, userConsentedTemplateIds, mandatoryTemplates, fullName]);
+  }, [isOpen, userConsents, mandatoryTemplates, fullName]);
+
+  const uploadSignature = async (templateId: string, signatureDataUrl: string) => {
+    if (!user) throw new Error("User not authenticated.");
+
+    const byteCharacters = atob(signatureDataUrl.split(',')[1]);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'image/png' });
+
+    const fileExt = 'png';
+    const fileName = `${user.id}_${templateId}_${Date.now()}.${fileExt}`;
+    const filePath = `signatures/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('signatures')
+      .upload(filePath, blob, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage
+      .from('signatures')
+      .getPublicUrl(filePath);
+    
+    return data.publicUrl;
+  };
 
   const createOrderMutation = useMutation({
     mutationFn: async ({ startDate, endDate, notes, isRecurring, recurrenceCount, recurrenceInterval }: { 
@@ -117,14 +157,24 @@ export function CartSheet() {
       if (!session || !user) throw new Error("User not authenticated");
       if (cart.length === 0) throw new Error("Cart is empty");
 
-      // Record consents in user_consents table
-      const consentsToInsert = mandatoryTemplates
-        .filter(template => consentsAccepted[template.id] && !userConsentedTemplateIds?.includes(template.id))
-        .map(template => ({
-            user_id: user.id,
-            consent_template_id: template.id,
-            signed_by_name: signatures[template.id],
-        }));
+      // Upload signatures and record consents in user_consents table
+      const consentsToInsert = [];
+      for (const template of mandatoryTemplates) {
+        const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
+        if (consentsAccepted[template.id] && !hasConsentedBefore) {
+            const signatureDataUrl = signatures[template.id];
+            if (!signatureDataUrl) {
+                throw new Error(`חתימה חסרה עבור טופס: ${template.name}`);
+            }
+            const signatureImageUrl = await uploadSignature(template.id, signatureDataUrl);
+            consentsToInsert.push({
+                user_id: user.id,
+                consent_template_id: template.id,
+                signature_image_url: signatureImageUrl,
+                full_name_signed: fullNamesSigned[template.id],
+            });
+        }
+      }
 
       if (consentsToInsert.length > 0) {
           const { error: consentError } = await supabase
@@ -173,10 +223,11 @@ export function CartSheet() {
       setRecurrenceCount(1);
       setConsentsAccepted({});
       setSignatures({});
+      setFullNamesSigned({});
       setIsOpen(false);
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
-      refetchUserConsents(); // Refetch user consents after successful submission
+      refetchUserConsents();
     },
     onError: (error) => {
       showError(`שגיאה בשליחת הבקשה: ${error.message}`);
@@ -199,13 +250,19 @@ export function CartSheet() {
 
     // Check if all mandatory templates are accepted and signed correctly
     const allAcceptedAndSigned = mandatoryTemplates.every(t => {
+        const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === t.id);
+        if (hasConsentedBefore) return true; // Already consented, no need to re-sign
+
         const isAccepted = consentsAccepted[t.id];
-        const isSigned = signatures[t.id] === fullName;
-        return isAccepted && isSigned;
+        const signatureCanvas = sigCanvasRefs.current[t.id];
+        const hasDrawnSignature = signatureCanvas && !signatureCanvas.isEmpty();
+        const isFullNameTyped = fullNamesSigned[t.id] === fullName;
+
+        return isAccepted && hasDrawnSignature && isFullNameTyped;
     });
 
     if (!allAcceptedAndSigned) {
-        showError("עליך לאשר ולחתום על כל טפסי ההסכמה הנדרשים בשמך המלא.");
+        showError("עליך לאשר, לחתום ולמלא את שמך המלא בכל טפסי ההסכמה הנדרשים.");
         return;
     }
 
@@ -221,15 +278,22 @@ export function CartSheet() {
 
   const handleConsentChange = (templateId: string, checked: boolean) => {
     setConsentsAccepted(prev => ({ ...prev, [templateId]: checked }));
-    if (checked) {
-        setSignatures(prev => ({ ...prev, [templateId]: fullName })); // Auto-fill on check
-    } else {
-        setSignatures(prev => ({ ...prev, [templateId]: '' })); // Clear on uncheck
+  };
+
+  const handleClearSignature = (templateId: string) => {
+    sigCanvasRefs.current[templateId]?.clear();
+    setSignatures(prev => ({ ...prev, [templateId]: '' }));
+  };
+
+  const handleSignatureEnd = (templateId: string) => {
+    const signatureData = sigCanvasRefs.current[templateId]?.toDataURL();
+    if (signatureData) {
+        setSignatures(prev => ({ ...prev, [templateId]: signatureData }));
     }
   };
 
-  const handleSignatureChange = (templateId: string, value: string) => {
-    setSignatures(prev => ({ ...prev, [templateId]: value }));
+  const handleFullNameSignedChange = (templateId: string, value: string) => {
+    setFullNamesSigned(prev => ({ ...prev, [templateId]: value }));
   };
 
   return (
@@ -364,7 +428,12 @@ export function CartSheet() {
                         <ShieldAlert className="h-5 w-5" />
                         טפסי הסכמה (חובה)
                     </h3>
-                    {mandatoryTemplates.map((template) => (
+                    {mandatoryTemplates.map((template) => {
+                        const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
+                        const currentSignatureUrl = userConsents?.find(uc => uc.consent_template_id === template.id)?.signature_image_url;
+                        const currentFullNameSigned = userConsents?.find(uc => uc.consent_template_id === template.id)?.full_name_signed;
+
+                        return (
                         <div key={template.id} className="space-y-2 border p-3 rounded-md bg-red-50/50">
                             <h4 className="font-medium text-sm">{template.name}</h4>
                             <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs">
@@ -375,26 +444,55 @@ export function CartSheet() {
                                     id={`consent-${template.id}`} 
                                     checked={consentsAccepted[template.id] || false}
                                     onCheckedChange={(checked) => handleConsentChange(template.id, !!checked)}
-                                    disabled={userConsentedTemplateIds?.includes(template.id)} // Disable if already consented
+                                    disabled={hasConsentedBefore}
                                 />
                                 <Label htmlFor={`consent-${template.id}`} className="text-xs cursor-pointer">
                                     אני מאשר/ת שקראתי והבנתי את תנאי הטופס
                                 </Label>
                             </div>
-                            <div className="space-y-1">
-                                <Label htmlFor={`signature-${template.id}`} className="text-xs">
-                                    חתימה דיגיטלית (הקלד את שמך המלא: {fullName})
+                            <div className="space-y-1 mt-2">
+                                <Label className="text-xs">
+                                    חתימה דיגיטלית (צייר את חתימתך)
+                                </Label>
+                                <div className="border rounded-md bg-white relative">
+                                    {hasConsentedBefore && currentSignatureUrl ? (
+                                        <img src={currentSignatureUrl} alt="חתימה קיימת" className="w-full h-24 object-contain" />
+                                    ) : (
+                                        <>
+                                            <SignatureCanvas
+                                                ref={(ref) => sigCanvasRefs.current[template.id] = ref}
+                                                penColor='black'
+                                                canvasProps={{ width: 350, height: 100, className: 'sigCanvas' }}
+                                                onEnd={() => handleSignatureEnd(template.id)}
+                                                backgroundColor='rgb(255,255,255)'
+                                            />
+                                            <Button 
+                                                type="button" 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6"
+                                                onClick={() => handleClearSignature(template.id)}
+                                            >
+                                                <RotateCcw className="h-3 w-3" />
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="space-y-1 mt-2">
+                                <Label htmlFor={`full-name-signed-${template.id}`} className="text-xs">
+                                    שם מלא (הקלד את שמך המלא: {fullName})
                                 </Label>
                                 <Input
-                                    id={`signature-${template.id}`}
-                                    value={signatures[template.id] || ''}
-                                    onChange={(e) => handleSignatureChange(template.id, e.target.value)}
+                                    id={`full-name-signed-${template.id}`}
+                                    value={fullNamesSigned[template.id] || ''}
+                                    onChange={(e) => handleFullNameSignedChange(template.id, e.target.value)}
                                     placeholder="הקלד את שמך המלא"
-                                    disabled={userConsentedTemplateIds?.includes(template.id)} // Disable if already consented
+                                    disabled={hasConsentedBefore}
                                 />
                             </div>
                         </div>
-                    ))}
+                    );})}
                 </div>
               )}
 
