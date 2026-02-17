@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { showError, showSuccess } from "@/utils/toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,21 +33,32 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
 
 const fetchMandatoryTemplates = async () => {
     const { data, error } = await supabase
         .from("consent_templates")
-        .select("id, name, content")
-        .eq("is_mandatory", true);
+        .select("id, name, content, is_mandatory");
     if (error) throw error;
     return data;
+};
+
+const fetchUserConsents = async (userId: string | undefined) => {
+    if (!userId) return [];
+    const { data, error } = await supabase
+        .from("user_consents")
+        .select("consent_template_id")
+        .eq("user_id", userId);
+    if (error) throw error;
+    return data.map(c => c.consent_template_id);
 };
 
 export function CartSheet() {
   const { cart, removeFromCart, clearCart } = useCart();
   const { user, session } = useSession();
+  const { profile } = useProfile(); // Get user profile for full name
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
   const [notes, setNotes] = useState("");
@@ -56,14 +67,43 @@ export function CartSheet() {
   const [recurrenceCount, setRecurrenceCount] = useState(1);
   const [recurrenceInterval, setRecurrenceInterval] = useState<'day' | 'week' | 'month'>('week');
   const [consentsAccepted, setConsentsAccepted] = useState<Record<string, boolean>>({});
+  const [signatures, setSignatures] = useState<Record<string, string>>({}); // New state for signatures
   
   const queryClient = useQueryClient();
 
-  const { data: mandatoryTemplates } = useQuery({
-    queryKey: ["mandatory-templates"],
+  const { data: allConsentTemplates } = useQuery({
+    queryKey: ["all-consent-templates"],
     queryFn: fetchMandatoryTemplates,
     enabled: isOpen && cart.length > 0,
   });
+
+  const mandatoryTemplates = allConsentTemplates?.filter(t => t.is_mandatory) || [];
+
+  const { data: userConsentedTemplateIds, refetch: refetchUserConsents } = useQuery({
+    queryKey: ["user-consents", user?.id],
+    queryFn: () => fetchUserConsents(user?.id),
+    enabled: !!user && isOpen && cart.length > 0,
+  });
+
+  const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
+
+  useEffect(() => {
+    if (isOpen && userConsentedTemplateIds) {
+        const initialConsents: Record<string, boolean> = {};
+        const initialSignatures: Record<string, string> = {};
+        mandatoryTemplates.forEach(template => {
+            if (userConsentedTemplateIds.includes(template.id)) {
+                initialConsents[template.id] = true;
+                initialSignatures[template.id] = fullName; // Pre-fill if already consented
+            } else {
+                initialConsents[template.id] = false;
+                initialSignatures[template.id] = '';
+            }
+        });
+        setConsentsAccepted(initialConsents);
+        setSignatures(initialSignatures);
+    }
+  }, [isOpen, userConsentedTemplateIds, mandatoryTemplates, fullName]);
 
   const createOrderMutation = useMutation({
     mutationFn: async ({ startDate, endDate, notes, isRecurring, recurrenceCount, recurrenceInterval }: { 
@@ -74,8 +114,24 @@ export function CartSheet() {
         recurrenceCount: number;
         recurrenceInterval: 'day' | 'week' | 'month';
     }) => {
-      if (!session) throw new Error("User not authenticated");
+      if (!session || !user) throw new Error("User not authenticated");
       if (cart.length === 0) throw new Error("Cart is empty");
+
+      // Record consents in user_consents table
+      const consentsToInsert = mandatoryTemplates
+        .filter(template => consentsAccepted[template.id] && !userConsentedTemplateIds?.includes(template.id))
+        .map(template => ({
+            user_id: user.id,
+            consent_template_id: template.id,
+            signed_by_name: signatures[template.id],
+        }));
+
+      if (consentsToInsert.length > 0) {
+          const { error: consentError } = await supabase
+              .from("user_consents")
+              .insert(consentsToInsert);
+          if (consentError) throw consentError;
+      }
 
       const payload = {
         startDate: startDate.toISOString(),
@@ -116,9 +172,11 @@ export function CartSheet() {
       setIsRecurring(false);
       setRecurrenceCount(1);
       setConsentsAccepted({});
+      setSignatures({});
       setIsOpen(false);
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+      refetchUserConsents(); // Refetch user consents after successful submission
     },
     onError: (error) => {
       showError(`שגיאה בשליחת הבקשה: ${error.message}`);
@@ -139,10 +197,15 @@ export function CartSheet() {
         return;
     }
 
-    // Check if all mandatory templates are accepted
-    const allAccepted = mandatoryTemplates?.every(t => consentsAccepted[t.id]) ?? true;
-    if (!allAccepted) {
-        showError("עליך לאשר את כל טפסי ההסכמה הנדרשים.");
+    // Check if all mandatory templates are accepted and signed correctly
+    const allAcceptedAndSigned = mandatoryTemplates.every(t => {
+        const isAccepted = consentsAccepted[t.id];
+        const isSigned = signatures[t.id] === fullName;
+        return isAccepted && isSigned;
+    });
+
+    if (!allAcceptedAndSigned) {
+        showError("עליך לאשר ולחתום על כל טפסי ההסכמה הנדרשים בשמך המלא.");
         return;
     }
 
@@ -158,6 +221,15 @@ export function CartSheet() {
 
   const handleConsentChange = (templateId: string, checked: boolean) => {
     setConsentsAccepted(prev => ({ ...prev, [templateId]: checked }));
+    if (checked) {
+        setSignatures(prev => ({ ...prev, [templateId]: fullName })); // Auto-fill on check
+    } else {
+        setSignatures(prev => ({ ...prev, [templateId]: '' })); // Clear on uncheck
+    }
+  };
+
+  const handleSignatureChange = (templateId: string, value: string) => {
+    setSignatures(prev => ({ ...prev, [templateId]: value }));
   };
 
   return (
@@ -286,7 +358,7 @@ export function CartSheet() {
               <Separator />
 
               {/* Mandatory Consent Forms */}
-              {mandatoryTemplates && mandatoryTemplates.length > 0 && (
+              {mandatoryTemplates.length > 0 && (
                 <div className="space-y-4">
                     <h3 className="font-semibold flex items-center gap-2 text-red-600">
                         <ShieldAlert className="h-5 w-5" />
@@ -303,10 +375,23 @@ export function CartSheet() {
                                     id={`consent-${template.id}`} 
                                     checked={consentsAccepted[template.id] || false}
                                     onCheckedChange={(checked) => handleConsentChange(template.id, !!checked)}
+                                    disabled={userConsentedTemplateIds?.includes(template.id)} // Disable if already consented
                                 />
                                 <Label htmlFor={`consent-${template.id}`} className="text-xs cursor-pointer">
                                     אני מאשר/ת שקראתי והבנתי את תנאי הטופס
                                 </Label>
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor={`signature-${template.id}`} className="text-xs">
+                                    חתימה דיגיטלית (הקלד את שמך המלא: {fullName})
+                                </Label>
+                                <Input
+                                    id={`signature-${template.id}`}
+                                    value={signatures[template.id] || ''}
+                                    onChange={(e) => handleSignatureChange(template.id, e.target.value)}
+                                    placeholder="הקלד את שמך המלא"
+                                    disabled={userConsentedTemplateIds?.includes(template.id)} // Disable if already consented
+                                />
                             </div>
                         </div>
                     ))}

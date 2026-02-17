@@ -9,13 +9,14 @@ interface ConsentTemplate {
   id: string;
   name: string;
   content: string;
+  is_mandatory: boolean; // Added is_mandatory
   created_at: string;
 }
 
 const fetchConsentTemplates = async () => {
   const { data, error } = await supabase
     .from("consent_templates")
-    .select(`id, name, content, created_at`)
+    .select(`id, name, content, is_mandatory, created_at`) // Select is_mandatory
     .order("name", { ascending: true });
   
   if (error) throw new Error(error.message);
