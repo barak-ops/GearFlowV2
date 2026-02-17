@@ -17,6 +17,22 @@ interface Category {
   name: string;
 }
 
+interface EquipmentStatus {
+    id: string;
+    name: string;
+    is_rentable: boolean;
+}
+
+interface EquipmentItem {
+  id: string;
+  name: string;
+  status_id: string;
+  equipment_statuses: EquipmentStatus | null;
+  categories: { name: string } | null;
+  image_url: string | null;
+  category_id: string;
+}
+
 const fetchEquipment = async () => {
   const { data, error } = await supabase
     .from("equipment_items")
@@ -30,7 +46,7 @@ const fetchEquipment = async () => {
       equipment_statuses ( id, name, is_rentable )
     `);
   if (error) throw new Error(error.message);
-  return data;
+  return data as EquipmentItem[];
 };
 
 const fetchCategories = async () => {

@@ -4,6 +4,11 @@ import { Loader2 } from "lucide-react";
 import { AuditLogTable } from "@/components/audit/AuditLogTable";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
+interface Profile {
+    first_name: string | null;
+    last_name: string | null;
+}
+
 interface AuditLog {
     id: string;
     logged_at: string;
@@ -13,7 +18,7 @@ interface AuditLog {
     user_id: string | null;
     old_data: Record<string, any> | null;
     new_data: Record<string, any> | null;
-    profiles: { first_name: string | null; last_name: string | null } | null;
+    profiles: Profile | null;
 }
 
 const fetchAuditLogs = async () => {

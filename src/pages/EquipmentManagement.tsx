@@ -18,6 +18,43 @@ export interface Category {
     name: string;
 }
 
+interface EquipmentStatus {
+    id: string;
+    name: string;
+    is_rentable: boolean;
+}
+
+interface EquipmentItem {
+  id: string;
+  name: string;
+  description: string | null;
+  serial_number: string | null;
+  category_id: string;
+  image_url: string | null;
+  status_id: string;
+  warehouse_id: string | null;
+  equipment_statuses: EquipmentStatus | null;
+  categories: { name: string } | null;
+  warehouses: { name: string } | null;
+  barcode: string | null;
+  sku: string | null;
+  item_type_id: string | null;
+  item_types: { name: string } | null;
+  supplier_id: string | null;
+  suppliers: { name: string } | null;
+  purchase_date: string | null;
+  location_id: string | null;
+  locations: { name: string } | null;
+  set_id: string | null;
+  sets: { name: string } | null;
+  insurance_type_id: string | null;
+  insurance_types: { name: string } | null;
+  manufacturer_id: string | null;
+  manufacturers: { name: string } | null;
+  price: number | null;
+  invoice_number: string | null;
+}
+
 const fetchEquipment = async () => {
   const { data, error } = await supabase
     .from("equipment_items")
@@ -52,13 +89,13 @@ const fetchEquipment = async () => {
       warehouses ( name )
     `);
   if (error) throw new Error(error.message);
-  return data;
+  return data as EquipmentItem[];
 };
 
 const fetchCategories = async () => {
     const { data, error } = await supabase.from("categories").select('id, name').order("name", { ascending: true });
     if (error) throw new Error(error.message);
-    return data;
+    return data as Category[];
 }
 
 const EquipmentManagement = () => {

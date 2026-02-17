@@ -3,6 +3,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { OrderTable } from "@/components/orders/OrderTable";
 
+interface Profile {
+  first_name: string | null;
+  last_name: string | null;
+}
+
+interface Order {
+  id: string;
+  created_at: string;
+  requested_start_date: string;
+  requested_end_date: string;
+  status: 'pending' | 'approved' | 'rejected' | 'checked_out' | 'returned' | 'cancelled';
+  notes: string | null;
+  profiles: Profile | null;
+  is_recurring: boolean;
+  recurrence_count: number | null;
+  recurrence_interval: 'day' | 'week' | 'month' | null;
+}
+
 const fetchAllOrders = async () => {
   const { data, error } = await supabase
     .from("orders")
@@ -20,7 +38,7 @@ const fetchAllOrders = async () => {
     `)
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return data;
+  return data as Order[];
 };
 
 const OrderManagement = () => {
