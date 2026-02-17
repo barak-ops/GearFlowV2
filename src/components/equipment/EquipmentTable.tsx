@@ -54,7 +54,6 @@ interface EquipmentItem {
   manufacturers: { name: string } | null;
   price: number | null;
   invoice_number: string | null;
-  consent_form_id: string | null; // New field
 }
 
 interface EquipmentTableProps {

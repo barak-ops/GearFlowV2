@@ -61,7 +61,6 @@ const equipmentSchema = z.object({
   ),
   invoice_number: z.string().optional(),
   status_id: z.string().uuid("יש לבחור סטטוס.").optional().or(z.literal('')),
-  consent_form_id: z.string().uuid("יש לבחור טופס הסכמה.").optional().or(z.literal('')), // New field
 });
 
 interface Category {
@@ -78,11 +77,6 @@ interface EquipmentStatus {
     id: string;
     name: string;
     is_rentable: boolean;
-}
-
-interface ConsentTemplate {
-    id: string;
-    name: string;
 }
 
 interface AddEquipmentDialogProps {
@@ -129,11 +123,6 @@ const fetchAllStatuses = async () => {
     if (error) throw new Error(error.message);
     return data as EquipmentStatus[];
 };
-const fetchConsentTemplates = async () => { // New fetch function
-    const { data, error } = await supabase.from("consent_templates").select('id, name').order("name", { ascending: true });
-    if (error) throw new Error(error.message);
-    return data as ConsentTemplate[];
-};
 
 
 export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
@@ -150,7 +139,6 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
   const { data: manufacturers } = useQuery({ queryKey: ["manufacturers"], queryFn: fetchManufacturers });
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: fetchWarehouses });
   const { data: allStatuses } = useQuery({ queryKey: ["equipment_statuses"], queryFn: fetchAllStatuses });
-  const { data: consentTemplates } = useQuery({ queryKey: ["consent_templates"], queryFn: fetchConsentTemplates }); // New query
 
   const defaultStatusId = allStatuses?.find(s => s.name === 'זמין')?.id || "";
 
@@ -176,7 +164,6 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
       price: null,
       invoice_number: "",
       status_id: defaultStatusId,
-      consent_form_id: "", // Default for new field
     },
   });
 
@@ -219,7 +206,6 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
         price: values.price,
         status_id: values.status_id,
         warehouse_id: values.warehouse_id === "" ? null : values.warehouse_id,
-        consent_form_id: values.consent_form_id === "" ? null : values.consent_form_id, // Save new field
       }]).select();
       if (error) throw error;
       return data;
@@ -605,31 +591,6 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
                   <FormControl>
                     <Input placeholder="מספר חשבונית רכישה" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="consent_form_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>טופס הסכמה נדרש</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="בחר טופס הסכמה (אופציונלי)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="">ללא טופס הסכמה</SelectItem>
-                      {consentTemplates?.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

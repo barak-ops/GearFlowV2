@@ -29,7 +29,6 @@ import { showSuccess, showError } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 const GENERATE_RECEIPT_PDF_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/generate-receipt-pdf";
 
@@ -39,8 +38,6 @@ interface EquipmentItemDetail {
     serial_number: string | null;
     image_url: string | null;
     categories: { name: string } | null;
-    consent_form_id: string | null; // New field
-    consent_templates: { name: string; content: string } | null; // Nested consent template
 }
 
 interface OrderItemDetail {
@@ -120,11 +117,8 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     name,
                     serial_number,
                     image_url,
-                    categories ( name ),
-                    consent_form_id,
-                    consent_templates ( name, content )
-                ),
-                order_item_receipts ( id, signature_image_url, received_at )
+                    categories ( name )
+                )
             ),
             consent_form_id,
             receipt_pdf_url
@@ -133,7 +127,23 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
         .single();
 
     if (error) throw new Error(error.message);
-    return data as OrderDetail;
+
+    // Manually fetch order_item_receipts for each item
+    const orderItemsWithReceipts = await Promise.all(data.order_items.map(async (orderItem: any) => {
+        const { data: receipts, error: receiptsError } = await supabase
+            .from("order_item_receipts")
+            .select("id, signature_image_url, received_at")
+            .eq("order_id", orderId)
+            .eq("item_id", orderItem.item_id);
+
+        if (receiptsError) {
+            console.error("Error fetching receipts for item:", orderItem.item_id, receiptsError);
+            return { ...orderItem, order_item_receipts: [] };
+        }
+        return { ...orderItem, order_item_receipts: receipts };
+    }));
+
+    return { ...data, order_items: orderItemsWithReceipts } as OrderDetail;
 };
 
 const fetchConsentDetails = async (consentId: string): Promise<ConsentDetail> => {
@@ -521,38 +531,14 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                     )}
                 </div>
 
-                {/* Item-specific Consent Forms */}
-                {items.some(item => item.consent_form_id && item.consent_templates) && (
-                    <>
-                        <Separator />
-                        <div>
-                            <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-primary" />
-                                טפסי הסכמה ספציפיים לפריטים
-                            </h4>
-                            <div className="space-y-4">
-                                {items.filter(item => item.consent_form_id && item.consent_templates).map((item, index) => (
-                                    <div key={index} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
-                                        <p className="font-medium mb-1">פריט: {item.name}</p>
-                                        <p className="font-medium">{item.consent_templates?.name || 'טופס לא ידוע'}</p>
-                                        <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs mt-2">
-                                            <p className="whitespace-pre-wrap">{item.consent_templates?.content}</p>
-                                        </ScrollArea>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </>
-                )}
-
-                {/* Global Consent Form (if any) */}
+                {/* User Consents (Existing) */}
                 {consent && (
                     <>
                         <Separator />
                         <div>
                             <h4 className="font-semibold mb-3 flex items-center gap-2">
                                 <ShieldAlert className="h-5 w-5 text-primary" />
-                                טופס הסכמה כללי (נחתם בעת הבקשה)
+                                טופס הסכמה חתום
                             </h4>
                             <div className="space-y-4">
                                 <div className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">

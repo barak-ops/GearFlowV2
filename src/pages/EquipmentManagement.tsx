@@ -53,7 +53,6 @@ interface EquipmentItem {
   manufacturers: { name: string } | null;
   price: number | null;
   invoice_number: string | null;
-  consent_form_id: string | null; // New field
 }
 
 const fetchEquipment = async () => {
@@ -79,7 +78,6 @@ const fetchEquipment = async () => {
       price,
       invoice_number,
       warehouse_id,
-      consent_form_id,
       categories ( name ),
       item_types ( name ),
       suppliers ( name ),

@@ -61,7 +61,6 @@ const equipmentSchema = z.object({
   ),
   invoice_number: z.string().optional(),
   status_id: z.string().uuid("יש לבחור סטטוס."),
-  consent_form_id: z.string().uuid("יש לבחור טופס הסכמה.").optional().or(z.literal('')), // New field
 });
 
 interface Category {
@@ -78,11 +77,6 @@ interface EquipmentStatus {
     id: string;
     name: string;
     is_rentable: boolean;
-}
-
-interface ConsentTemplate {
-    id: string;
-    name: string;
 }
 
 interface EquipmentItem {
@@ -107,7 +101,6 @@ interface EquipmentItem {
   manufacturer_id: string | null;
   price: number | null;
   invoice_number: string | null;
-  consent_form_id: string | null; // New field
 }
 
 interface EditEquipmentDialogProps {
@@ -155,11 +148,6 @@ const fetchAllStatuses = async () => {
     if (error) throw new Error(error.message);
     return data as EquipmentStatus[];
 };
-const fetchConsentTemplates = async () => { // New fetch function
-    const { data, error } = await supabase.from("consent_templates").select('id, name').order("name", { ascending: true });
-    if (error) throw new Error(error.message);
-    return data as ConsentTemplate[];
-};
 
 export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -175,7 +163,6 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
   const { data: manufacturers } = useQuery({ queryKey: ["manufacturers"], queryFn: fetchManufacturers });
   const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: fetchWarehouses });
   const { data: allStatuses } = useQuery({ queryKey: ["equipment_statuses"], queryFn: fetchAllStatuses });
-  const { data: consentTemplates } = useQuery({ queryKey: ["consent_templates"], queryFn: fetchConsentTemplates }); // New query
 
   const form = useForm<z.infer<typeof equipmentSchema>>({
     resolver: zodResolver(equipmentSchema),
@@ -198,7 +185,6 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
       price: item.price || null,
       invoice_number: item.invoice_number || "",
       status_id: item.status_id,
-      consent_form_id: item.consent_form_id || "", // Default for new field
     },
   });
 
@@ -248,7 +234,6 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
             price: values.price,
             invoice_number: values.invoice_number,
             status_id: values.status_id,
-            consent_form_id: values.consent_form_id === "" ? null : values.consent_form_id, // Save new field
         })
         .eq("id", item.id);
       if (error) throw error;
@@ -634,31 +619,6 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
                   <FormControl>
                     <Input placeholder="מספר חשבונית רכישה" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="consent_form_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>טופס הסכמה נדרש</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="בחר טופס הסכמה (אופציונלי)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="">ללא טופס הסכמה</SelectItem>
-                      {consentTemplates?.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

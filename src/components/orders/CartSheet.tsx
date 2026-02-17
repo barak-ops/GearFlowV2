@@ -4,6 +4,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -37,25 +38,12 @@ import SignatureCanvas from 'react-signature-canvas';
 
 const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
 
-interface ConsentTemplate {
-    id: string;
-    name: string;
-    content: string;
-    is_mandatory: boolean;
-}
-
-interface UserConsent {
-    consent_template_id: string;
-    signature_image_url: string | null;
-    full_name_signed: string | null;
-}
-
-const fetchAllConsentTemplates = async () => {
+const fetchMandatoryTemplates = async () => {
     const { data, error } = await supabase
         .from("consent_templates")
         .select("id, name, content, is_mandatory");
     if (error) throw error;
-    return data as ConsentTemplate[];
+    return data;
 };
 
 const fetchUserConsents = async (userId: string | undefined) => {
@@ -65,7 +53,7 @@ const fetchUserConsents = async (userId: string | undefined) => {
         .select("consent_template_id, signature_image_url, full_name_signed")
         .eq("user_id", userId);
     if (error) throw error;
-    return data as UserConsent[];
+    return data;
 };
 
 export function CartSheet() {
@@ -83,11 +71,13 @@ export function CartSheet() {
   
   const queryClient = useQueryClient();
 
-  const { data: allConsentTemplates, isLoading: isLoadingAllTemplates } = useQuery({
+  const { data: allConsentTemplates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ["all-consent-templates"],
-    queryFn: fetchAllConsentTemplates,
+    queryFn: fetchMandatoryTemplates,
     enabled: isOpen && cart.length > 0,
   });
+
+  const mandatoryTemplates = allConsentTemplates?.filter(t => t.is_mandatory) || [];
 
   const { data: userConsents, refetch: refetchUserConsents, isLoading: isLoadingUserConsents } = useQuery({
     queryKey: ["user-consents", user?.id],
@@ -96,21 +86,6 @@ export function CartSheet() {
   });
 
   const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
-
-  // Filter consent templates relevant to the cart items
-  const relevantConsentTemplates = React.useMemo(() => {
-    if (!allConsentTemplates) return [];
-    const mandatoryGlobalTemplates = allConsentTemplates.filter(t => t.is_mandatory);
-    const itemSpecificTemplates = allConsentTemplates.filter(t => 
-        cart.some(item => item.consent_form_id === t.id)
-    );
-    
-    // Combine and remove duplicates
-    const combined = [...mandatoryGlobalTemplates, ...itemSpecificTemplates];
-    const uniqueTemplates = Array.from(new Map(combined.map(template => [template.id, template])).values());
-    return uniqueTemplates;
-  }, [allConsentTemplates, cart]);
-
 
   const uploadSignature = async (templateId: string, signatureDataUrl: string) => {
     if (!user) throw new Error("User not authenticated.");
@@ -240,14 +215,14 @@ export function CartSheet() {
         return;
     }
 
-    if (isLoadingUserConsents || isLoadingAllTemplates) {
+    if (isLoadingUserConsents) {
         showError("טוען נתוני הסכמות משתמש, אנא המתן רגע ונסה שוב.");
         return;
     }
 
     const newConsentsToCreate: { templateId: string; signatureDataUrl: string; fullName: string }[] = [];
     
-    const allSigned = relevantConsentTemplates.every(template => {
+    const allSigned = mandatoryTemplates.every(template => {
         const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
         
         if (hasConsentedBefore) {
@@ -414,17 +389,17 @@ export function CartSheet() {
               <Separator />
 
               {/* Mandatory Consent Forms */}
-              {isLoadingUserConsents || isLoadingAllTemplates ? (
+              {isLoadingUserConsents ? (
                 <div className="flex justify-center items-center p-4">
                     <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
-              ) : relevantConsentTemplates.length > 0 && (
+              ) : mandatoryTemplates.length > 0 && (
                 <div className="space-y-4">
                     <h3 className="font-semibold flex items-center gap-2 text-red-600">
                         <ShieldAlert className="h-5 w-5" />
                         טפסי הסכמה (חובה)
                     </h3>
-                    {relevantConsentTemplates.map((template) => {
+                    {mandatoryTemplates.map((template) => {
                         const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
                         const currentSignatureUrl = userConsents?.find(uc => uc.consent_template_id === template.id)?.signature_image_url;
 
