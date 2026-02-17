@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Eye, Package, CalendarIcon } from "lucide-react";
+import { Loader2, Eye, Package, CalendarIcon, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Separator } from "@/components/ui/separator";
@@ -53,7 +53,7 @@ interface OrderDetail {
     recurrence_count: number | null;
     recurrence_interval: 'day' | 'week' | 'month' | null;
     order_items: OrderItemDetail[];
-    user_consents: ConsentDetail | null; // Changed to single consent, as order now links to one
+    consent_form_id: string | null; // Added consent_form_id to OrderDetail
 }
 
 interface OrderDetailsDialogProps {
@@ -106,12 +106,7 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     categories ( name )
                 )
             ),
-            user_consents!consent_form_id (
-                consent_templates ( name ),
-                signature_image_url,
-                full_name_signed,
-                signed_at
-            )
+            consent_form_id
         `)
         .eq("id", orderId)
         .single();
@@ -120,19 +115,44 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
     return data as OrderDetail;
 };
 
+const fetchConsentDetails = async (consentId: string): Promise<ConsentDetail> => {
+    const { data, error } = await supabase
+        .from("user_consents")
+        .select(`
+            consent_templates ( name ),
+            signature_image_url,
+            full_name_signed,
+            signed_at
+        `)
+        .eq("id", consentId)
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data as ConsentDetail;
+};
+
 export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     
-    const { data: order, isLoading, error, refetch } = useQuery({
+    const { data: order, isLoading: isLoadingOrder, error: orderError, refetch: refetchOrder } = useQuery({
         queryKey: ["order-details", orderId],
         queryFn: () => fetchOrderDetails(orderId),
         enabled: isOpen, // Only fetch when dialog is opened
     });
 
+    const { data: consent, isLoading: isLoadingConsent, error: consentError, refetch: refetchConsent } = useQuery({
+        queryKey: ["consent-details", order?.consent_form_id],
+        queryFn: () => fetchConsentDetails(order!.consent_form_id!),
+        enabled: isOpen && !!order?.consent_form_id, // Only fetch if dialog is open and consent_form_id exists
+    });
+
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
         if (open) {
-            refetch();
+            refetchOrder();
+            if (order?.consent_form_id) {
+                refetchConsent();
+            }
         }
     };
 
@@ -142,13 +162,13 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         </div>
     );
 
-    const renderError = () => (
+    const renderError = (error: Error | null) => (
         <div className="text-center text-red-500 p-4">
             שגיאה בטעינת פרטי ההזמנה: {error?.message}
         </div>
     );
 
-    const renderDetails = (order: OrderDetail) => {
+    const renderDetails = (order: OrderDetail, consent: ConsentDetail | null) => {
         const items = order.order_items.map(oi => oi.equipment_items).filter(item => item !== null) as EquipmentItemDetail[];
         
         return (
@@ -228,7 +248,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </div>
 
                 {/* User Consents */}
-                {order.user_consents && (
+                {consent && (
                     <>
                         <Separator />
                         <div>
@@ -238,13 +258,13 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                             </h4>
                             <div className="space-y-4">
                                 <div className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
-                                    <p className="font-medium">{order.user_consents.consent_templates?.name || 'טופס לא ידוע'}</p>
-                                    <p className="text-sm text-muted-foreground">נחתם על ידי: {order.user_consents.full_name_signed || 'לא צוין'}</p>
-                                    <p className="text-xs text-muted-foreground">בתאריך: {format(new Date(order.user_consents.signed_at), "PPP HH:mm", { locale: he })}</p>
-                                    {order.user_consents.signature_image_url && (
+                                    <p className="font-medium">{consent.consent_templates?.name || 'טופס לא ידוע'}</p>
+                                    <p className="text-sm text-muted-foreground">נחתם על ידי: {consent.full_name_signed || 'לא צוין'}</p>
+                                    <p className="text-xs text-muted-foreground">בתאריך: {format(new Date(consent.signed_at), "PPP HH:mm", { locale: he })}</p>
+                                    {consent.signature_image_url && (
                                         <div className="mt-2">
                                             <p className="text-xs text-muted-foreground mb-1">חתימה:</p>
-                                            <img src={order.user_consents.signature_image_url} alt="חתימת משתמש" className="w-full max-w-[200px] h-auto object-contain border rounded-md bg-white" />
+                                            <img src={consent.signature_image_url} alt="חתימת משתמש" className="w-full max-w-[200px] h-auto object-contain border rounded-md bg-white" />
                                         </div>
                                     )}
                                 </div>
@@ -271,7 +291,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                         הזמנה מספר {orderId.substring(0, 8)}... של {userName}
                     </DialogDescription>
                 </DialogHeader>
-                {isLoading ? renderLoading() : error ? renderError() : order ? renderDetails(order) : null}
+                {isLoadingOrder || isLoadingConsent ? renderLoading() : orderError ? renderError(orderError) : consentError ? renderError(consentError) : order ? renderDetails(order, consent || null) : null}
             </DialogContent>
         </Dialog>
     );
