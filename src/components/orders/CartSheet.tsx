@@ -161,7 +161,7 @@ export function CartSheet() {
       const consentsToInsert = [];
       for (const template of mandatoryTemplates) {
         const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
-        if (consentsAccepted[template.id] && !hasConsentedBefore) {
+        if (!hasConsentedBefore) { // Only process if not consented before
             const signatureDataUrl = signatures[template.id];
             if (!signatureDataUrl) {
                 throw new Error(`חתימה חסרה עבור טופס: ${template.name}`);
@@ -171,7 +171,7 @@ export function CartSheet() {
                 user_id: user.id,
                 consent_template_id: template.id,
                 signature_image_url: signatureImageUrl,
-                full_name_signed: fullNamesSigned[template.id],
+                full_name_signed: fullName, // Use the profile's full name directly
             });
         }
       }
@@ -248,21 +248,19 @@ export function CartSheet() {
         return;
     }
 
-    // Check if all mandatory templates are accepted and signed correctly
-    const allAcceptedAndSigned = mandatoryTemplates.every(t => {
+    // Check if all mandatory templates are signed
+    const allSigned = mandatoryTemplates.every(t => {
         const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === t.id);
         if (hasConsentedBefore) return true; // Already consented, no need to re-sign
 
-        const isAccepted = consentsAccepted[t.id];
         const signatureCanvas = sigCanvasRefs.current[t.id];
         const hasDrawnSignature = signatureCanvas && !signatureCanvas.isEmpty();
-        const isFullNameTyped = fullNamesSigned[t.id] === fullName;
-
-        return isAccepted && hasDrawnSignature && isFullNameTyped;
+        
+        return hasDrawnSignature;
     });
 
-    if (!allAcceptedAndSigned) {
-        showError("עליך לאשר, לחתום ולמלא את שמך המלא בכל טפסי ההסכמה הנדרשים.");
+    if (!allSigned) {
+        showError("עליך לחתום על כל טפסי ההסכמה הנדרשים.");
         return;
     }
 
@@ -439,17 +437,7 @@ export function CartSheet() {
                             <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs">
                                 <p className="whitespace-pre-wrap">{template.content}</p>
                             </ScrollArea>
-                            <div className="flex items-center space-x-2 space-x-reverse">
-                                <Checkbox 
-                                    id={`consent-${template.id}`} 
-                                    checked={consentsAccepted[template.id] || false}
-                                    onCheckedChange={(checked) => handleConsentChange(template.id, !!checked)}
-                                    disabled={hasConsentedBefore}
-                                />
-                                <Label htmlFor={`consent-${template.id}`} className="text-xs cursor-pointer">
-                                    אני מאשר/ת שקראתי והבנתי את תנאי הטופס
-                                </Label>
-                            </div>
+                            {/* Removed Checkbox */}
                             <div className="space-y-1 mt-2">
                                 <Label className="text-xs">
                                     חתימה דיגיטלית (צייר את חתימתך)
@@ -480,18 +468,7 @@ export function CartSheet() {
                                     )}
                                 </div>
                             </div>
-                            <div className="space-y-1 mt-2">
-                                <Label htmlFor={`full-name-signed-${template.id}`} className="text-xs">
-                                    שם מלא (הקלד את שמך המלא: {fullName})
-                                </Label>
-                                <Input
-                                    id={`full-name-signed-${template.id}`}
-                                    value={fullNamesSigned[template.id] || ''}
-                                    onChange={(e) => handleFullNameSignedChange(template.id, e.target.value)}
-                                    placeholder="הקלד את שמך המלא"
-                                    disabled={hasConsentedBefore}
-                                />
-                            </div>
+                            {/* Removed Full Name Input */}
                         </div>
                     );})}
                 </div>
