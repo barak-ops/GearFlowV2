@@ -99,3 +99,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fix for Radix ScrollArea display:table issue with RTL */
+[data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  direction: rtl; /* Ensure content inside scroll area respects RTL */
+}
