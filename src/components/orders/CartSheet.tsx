@@ -152,7 +152,7 @@ export function CartSheet() {
           if (consentError) throw consentError;
       }
 
-      // 3. Create the order(s)
+      // 3. Call the Edge Function to create the order(s)
       const payload = {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
