@@ -160,6 +160,10 @@ const fetchOrderItemReceipts = async (orderId: string): Promise<OrderItemReceipt
 };
 
 const fetchUserConsent = async (userId: string, consentTemplateId: string): Promise<UserConsent | null> => {
+    // Ensure consentTemplateId is a valid UUID string, not null or undefined
+    if (!consentTemplateId) {
+        return null;
+    }
     const { data, error } = await supabase
         .from("user_consents")
         .select(`id, user_id, consent_template_id, signature_image_url, full_name_signed, signed_at`)
@@ -196,7 +200,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
     const { data: userConsent, isLoading: isLoadingUserConsent, error: userConsentError, refetch: refetchUserConsent } = useQuery({
         queryKey: ["user-consent", user?.id, order?.consent_form_id],
         queryFn: () => fetchUserConsent(user!.id, order!.consent_form_id!),
-        enabled: isOpen && !!user?.id && !!order?.consent_form_id,
+        enabled: isOpen && !!user?.id && !!order?.consent_form_id, // Only enable if consent_form_id exists
     });
 
     const [receivedItems, setReceivedItems] = useState<Set<string>>(new Set());
