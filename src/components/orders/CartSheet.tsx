@@ -131,23 +131,24 @@ export function CartSheet() {
       if (!session || !user) throw new Error("User not authenticated");
       if (cart.length === 0) throw new Error("Cart is empty");
 
-      // 1. Upload new signatures and prepare consent records
-      const consentsToInsertToDb = [];
+      // 1. Upload new signatures and prepare consent records for upsert
+      const consentsToUpsert = [];
       for (const consent of newConsents) {
         const signatureImageUrl = await uploadSignature(consent.templateId, consent.signatureDataUrl);
-        consentsToInsertToDb.push({
+        consentsToUpsert.push({
             user_id: user.id,
             consent_template_id: consent.templateId,
             signature_image_url: signatureImageUrl,
             full_name_signed: consent.fullName,
+            signed_at: new Date().toISOString(), // Update signed_at timestamp
         });
       }
 
-      // 2. Insert new consents into the database if there are any
-      if (consentsToInsertToDb.length > 0) {
+      // 2. Upsert new consents into the database if there are any
+      if (consentsToUpsert.length > 0) {
           const { error: consentError } = await supabase
               .from("user_consents")
-              .insert(consentsToInsertToDb);
+              .upsert(consentsToUpsert, { onConflict: 'user_id, consent_template_id' }); // Use upsert with conflict resolution
           if (consentError) throw consentError;
       }
 
@@ -193,7 +194,7 @@ export function CartSheet() {
       setIsOpen(false);
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
-      refetchUserConsents();
+      refetchUserConsents(); // Refetch user consents to update the UI state
     },
     onError: (error) => {
       showError(`שגיאה בשליחת הבקשה: ${error.message}`);
