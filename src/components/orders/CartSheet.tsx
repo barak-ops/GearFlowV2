@@ -74,7 +74,7 @@ export function CartSheet() {
   
   const queryClient = useQueryClient();
 
-  const { data: allConsentTemplates } = useQuery({
+  const { data: allConsentTemplates, isLoading: isLoadingTemplates } = useQuery({
     queryKey: ["all-consent-templates"],
     queryFn: fetchMandatoryTemplates,
     enabled: isOpen && cart.length > 0,
@@ -82,7 +82,7 @@ export function CartSheet() {
 
   const mandatoryTemplates = allConsentTemplates?.filter(t => t.is_mandatory) || [];
 
-  const { data: userConsents, refetch: refetchUserConsents } = useQuery({
+  const { data: userConsents, refetch: refetchUserConsents, isLoading: isLoadingUserConsents } = useQuery({
     queryKey: ["user-consents", user?.id],
     queryFn: () => fetchUserConsents(user?.id),
     enabled: !!user && isOpen && cart.length > 0,
@@ -91,7 +91,7 @@ export function CartSheet() {
   const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
 
   useEffect(() => {
-    if (isOpen && userConsents) {
+    if (isOpen && userConsents && mandatoryTemplates.length > 0) {
         const initialConsents: Record<string, boolean> = {};
         const initialSignatures: Record<string, string> = {};
         const initialFullNamesSigned: Record<string, string> = {};
@@ -156,6 +156,11 @@ export function CartSheet() {
     }) => {
       if (!session || !user) throw new Error("User not authenticated");
       if (cart.length === 0) throw new Error("Cart is empty");
+
+      // Ensure userConsents are loaded before proceeding
+      if (isLoadingUserConsents) {
+        throw new Error("טוען נתוני הסכמות משתמש, אנא נסה שוב.");
+      }
 
       // Upload signatures and record consents in user_consents table
       const consentsToInsert = [];
@@ -247,6 +252,12 @@ export function CartSheet() {
     }
     if (isRecurring && (recurrenceCount < 1 || recurrenceCount > 30)) {
         showError("מספר הפעמים חייב להיות בין 1 ל-30.");
+        return;
+    }
+
+    // Ensure userConsents are loaded before proceeding
+    if (isLoadingUserConsents) {
+        showError("טוען נתוני הסכמות משתמש, אנא נסה שוב.");
         return;
     }
 
