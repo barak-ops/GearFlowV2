@@ -376,7 +376,9 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const allItemsReceived = items.length > 0 && items.every(item => receivedItems.has(item.item_id));
         const canSignReceipt = allItemsReceived && !isCustomerSigned;
 
-        const receiptFormContent = consent?.consent_templates?.is_receipt_form ? consent.consent_templates.content : null;
+        // Determine if the associated consent form is a receipt form
+        const isConsentReceiptForm = consent?.consent_templates?.is_receipt_form;
+        const receiptFormContent = isConsentReceiptForm ? consent?.consent_templates?.content : null;
 
         return (
             <div className="space-y-6" dir="rtl">
@@ -484,7 +486,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                             <p className="text-sm text-muted-foreground mb-2">
                                 לאחר אישור קבלת כל הפריטים, הלקוח נדרש לחתום דיגיטלית על מסמך הקבלה.
                             </p>
-                            {receiptFormContent && (
+                            {receiptFormContent && ( // Display receipt form content here
                                 <div className="space-y-1 mt-2">
                                     <Label className="text-xs">
                                         תוכן טופס הקבלה:
@@ -545,7 +547,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </div>
 
                 {/* User Consents (Existing) */}
-                {consent && !consent.consent_templates?.is_receipt_form && ( // Only show if it's not the receipt form
+                {consent && !isConsentReceiptForm && ( // Only show if it's not the receipt form
                     <>
                         <Separator />
                         <div>
