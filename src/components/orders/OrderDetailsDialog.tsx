@@ -159,28 +159,32 @@ const fetchOrderItemReceipts = async (orderId: string): Promise<OrderItemReceipt
     return data as OrderItemReceipt[];
 };
 
-const fetchUserConsent = async (userId: string, consentTemplateId: string): Promise<UserConsent | null> => {
-    // Ensure consentTemplateId is a valid UUID string, not null or undefined
-    if (!consentTemplateId) {
-        return null;
-    }
+const fetchRelevantConsentTemplates = async (): Promise<ConsentTemplate[]> => {
+    const { data, error } = await supabase
+        .from("consent_templates")
+        .select(`id, name, content, is_mandatory, is_receipt_form`)
+        .or('is_mandatory.eq.true,is_receipt_form.eq.true'); // Fetch all mandatory or receipt forms
+
+    if (error) throw new Error(error.message);
+    return data as ConsentTemplate[];
+};
+
+const fetchUserConsentsForTemplates = async (userId: string, templateIds: string[]): Promise<UserConsent[]> => {
+    if (!userId || templateIds.length === 0) return [];
     const { data, error } = await supabase
         .from("user_consents")
         .select(`id, user_id, consent_template_id, signature_image_url, full_name_signed, signed_at`)
         .eq("user_id", userId)
-        .eq("consent_template_id", consentTemplateId)
-        .single();
+        .in("consent_template_id", templateIds);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
-        throw new Error(error.message);
-    }
-    return data as UserConsent | null;
+    if (error) throw new Error(error.message);
+    return data as UserConsent[];
 };
 
 export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isCustomerSigned, setIsCustomerSigned] = useState(false);
-    const [hasReadConsent, setHasReadConsent] = useState(false); // New state for consent checkbox
+    const [consentsReadStatus, setConsentsReadStatus] = useState<Record<string, boolean>>({}); // Track read status for each consent form
     const signatureCanvasRef = useRef<SignatureCanvas | null>(null);
     const { user, session } = useSession();
     const queryClient = useQueryClient();
@@ -197,10 +201,16 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         enabled: isOpen,
     });
 
-    const { data: userConsent, isLoading: isLoadingUserConsent, error: userConsentError, refetch: refetchUserConsent } = useQuery({
-        queryKey: ["user-consent", user?.id, order?.consent_form_id],
-        queryFn: () => fetchUserConsent(user!.id, order!.consent_form_id!),
-        enabled: isOpen && !!user?.id && !!order?.consent_form_id, // Only enable if consent_form_id exists
+    const { data: relevantConsentTemplates, isLoading: isLoadingRelevantConsentTemplates, error: relevantConsentTemplatesError, refetch: refetchRelevantConsentTemplates } = useQuery({
+        queryKey: ["relevant-consent-templates"],
+        queryFn: fetchRelevantConsentTemplates,
+        enabled: isOpen,
+    });
+
+    const { data: userConsents, isLoading: isLoadingUserConsents, error: userConsentsError, refetch: refetchUserConsents } = useQuery({
+        queryKey: ["user-consents", user?.id, relevantConsentTemplates?.map(t => t.id)],
+        queryFn: () => fetchUserConsentsForTemplates(user!.id, relevantConsentTemplates!.map(t => t.id)),
+        enabled: isOpen && !!user?.id && !!relevantConsentTemplates && relevantConsentTemplates.length > 0,
     });
 
     const [receivedItems, setReceivedItems] = useState<Set<string>>(new Set());
@@ -222,25 +232,28 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
     }, [order, orderItemReceipts]);
 
     useEffect(() => {
-        // If there's a relevant consent form and the user has already consented, mark as read
-        if (order?.consent_templates && (order.consent_templates.is_receipt_form || order.consent_templates.is_mandatory) && userConsent) {
-            setHasReadConsent(true);
-        } else {
-            setHasReadConsent(false);
+        if (relevantConsentTemplates && userConsents) {
+            const initialConsentsReadStatus: Record<string, boolean> = {};
+            relevantConsentTemplates.forEach(template => {
+                const hasUserConsented = userConsents.some(uc => uc.consent_template_id === template.id);
+                initialConsentsReadStatus[template.id] = hasUserConsented;
+            });
+            setConsentsReadStatus(initialConsentsReadStatus);
         }
-    }, [order, userConsent]);
+    }, [relevantConsentTemplates, userConsents]);
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
         if (open) {
             refetchOrder();
             refetchOrderItemReceipts();
-            refetchUserConsent(); // Refetch user consent when dialog opens
+            refetchRelevantConsentTemplates();
+            refetchUserConsents();
         } else {
             // Reset state when closing
             setReceivedItems(new Set());
             setIsCustomerSigned(false);
-            setHasReadConsent(false); // Reset consent checkbox
+            setConsentsReadStatus({}); // Reset all consent checkboxes
             signatureCanvasRef.current?.clear();
         }
     };
@@ -328,7 +341,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         },
         onSuccess: () => {
             showSuccess("הסכמתך נשמרה בהצלחה!");
-            queryClient.invalidateQueries({ queryKey: ["user-consent", user?.id, order?.consent_form_id] });
+            queryClient.invalidateQueries({ queryKey: ["user-consents", user?.id, relevantConsentTemplates?.map(t => t.id)] });
         },
         onError: (error) => {
             showError(`שגיאה בשמירת ההסכמה: ${error.message}`);
@@ -341,20 +354,26 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
             if (receivedItems.size !== order.order_items.length) {
                 throw new Error("יש לסמן את כל הפריטים כ'התקבלו' לפני החתימה.");
             }
-            if (order.consent_templates && (order.consent_templates.is_receipt_form || order.consent_templates.is_mandatory) && !hasReadConsent) {
-                throw new Error("יש לאשר שקראת את טופס ההסכמה לפני החתימה.");
+            
+            // Check if all mandatory/receipt consent forms have been read/consented
+            const allRequiredConsentsRead = relevantConsentTemplates?.every(template => consentsReadStatus[template.id]) ?? true;
+            if (!allRequiredConsentsRead) {
+                throw new Error("יש לאשר שקראת את כל טפסי ההסכמה הנדרשים לפני החתימה.");
             }
 
             // 1. Upload the signature image for the receipt
             const receiptSignatureImageUrl = await uploadSignature(signatureDataUrl);
 
-            // 2. If there's a relevant consent form and user hasn't consented yet, save their consent
-            if (order.consent_templates && (order.consent_templates.is_receipt_form || order.consent_templates.is_mandatory) && !userConsent) {
-                await saveUserConsentMutation.mutateAsync({
-                    signatureImageUrl: receiptSignatureImageUrl, // Use the same signature for consent
-                    fullNameSigned: userName, // Assuming userName is the full name
-                    consentTemplateId: order.consent_templates.id,
-                });
+            // 2. For each relevant consent form that the user hasn't consented to yet, save their consent
+            for (const template of (relevantConsentTemplates || [])) {
+                const hasUserConsented = userConsents?.some(uc => uc.consent_template_id === template.id);
+                if (!hasUserConsented) {
+                    await saveUserConsentMutation.mutateAsync({
+                        signatureImageUrl: receiptSignatureImageUrl, // Use the same signature for consent
+                        fullNameSigned: userName, // Assuming userName is the full name
+                        consentTemplateId: template.id,
+                    });
+                }
             }
 
             // 3. Generate the receipt PDF (via Edge Function)
@@ -436,12 +455,13 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         
         const allItemsReceived = items.length > 0 && items.every(item => receivedItems.has(item.item_id));
         
-        const relevantConsentTemplate = order.consent_templates && (order.consent_templates.is_receipt_form || order.consent_templates.is_mandatory)
-            ? order.consent_templates
-            : null;
+        // Filter relevant consent templates based on is_mandatory or is_receipt_form
+        const activeConsentTemplates = relevantConsentTemplates?.filter(template => template.is_mandatory || template.is_receipt_form) || [];
         
-        const isConsentRequired = !!relevantConsentTemplate && !userConsent;
-        const canSignReceipt = allItemsReceived && !isCustomerSigned && (!isConsentRequired || hasReadConsent);
+        // Check if all active consent forms have been read/consented
+        const allRequiredConsentsRead = activeConsentTemplates.every(template => consentsReadStatus[template.id]);
+
+        const canSignReceipt = allItemsReceived && !isCustomerSigned && allRequiredConsentsRead;
 
         return (
             <div className="space-y-6" dir="rtl">
@@ -550,29 +570,36 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                 לאחר אישור קבלת כל הפריטים, הלקוח נדרש לחתום דיגיטלית על מסמך הקבלה.
                             </p>
 
-                            {/* Consent Form Display */}
-                            {relevantConsentTemplate && (
-                                <div className="border p-3 rounded-md bg-white mb-4">
-                                    <h5 className="font-bold text-base mb-2">{relevantConsentTemplate.name}</h5>
-                                    <div className="max-h-40 overflow-y-auto text-sm text-gray-700 border p-2 rounded-md bg-gray-50">
-                                        <p className="whitespace-pre-wrap">{relevantConsentTemplate.content}</p>
-                                    </div>
-                                    <div className="flex items-center space-x-2 space-x-reverse mt-3">
-                                        <Checkbox
-                                            id="has-read-consent"
-                                            checked={hasReadConsent}
-                                            onCheckedChange={(checked) => setHasReadConsent(!!checked)}
-                                            disabled={!!userConsent} // Disable if already consented
-                                        />
-                                        <Label htmlFor="has-read-consent" className="font-semibold cursor-pointer">
-                                            אני מאשר/ת שקראתי והבנתי את תנאי טופס ההסכמה.
-                                        </Label>
-                                    </div>
-                                    {userConsent && (
-                                        <p className="text-xs text-green-600 mt-1">
-                                            (הסכמה זו נשמרה בעבר בתאריך {format(new Date(userConsent.signed_at), "PPP", { locale: he })})
-                                        </p>
-                                    )}
+                            {/* Display all active consent forms */}
+                            {activeConsentTemplates.length > 0 && (
+                                <div className="space-y-4 mb-4">
+                                    {activeConsentTemplates.map(template => {
+                                        const hasUserConsented = userConsents?.some(uc => uc.consent_template_id === template.id);
+                                        return (
+                                            <div key={template.id} className="border p-3 rounded-md bg-white">
+                                                <h5 className="font-bold text-base mb-2">{template.name}</h5>
+                                                <div className="max-h-40 overflow-y-auto text-sm text-gray-700 border p-2 rounded-md bg-gray-50">
+                                                    <p className="whitespace-pre-wrap">{template.content}</p>
+                                                </div>
+                                                <div className="flex items-center space-x-2 space-x-reverse mt-3">
+                                                    <Checkbox
+                                                        id={`consent-${template.id}`}
+                                                        checked={consentsReadStatus[template.id]}
+                                                        onCheckedChange={(checked) => setConsentsReadStatus(prev => ({ ...prev, [template.id]: !!checked }))}
+                                                        disabled={hasUserConsented} // Disable if already consented
+                                                    />
+                                                    <Label htmlFor={`consent-${template.id}`} className="font-semibold cursor-pointer">
+                                                        אני מאשר/ת שקראתי והבנתי את תנאי טופס ההסכמה.
+                                                    </Label>
+                                                </div>
+                                                {hasUserConsented && (
+                                                    <p className="text-xs text-green-600 mt-1">
+                                                        (הסכמה זו נשמרה בעבר בתאריך {format(new Date(userConsents.find(uc => uc.consent_template_id === template.id)!.signed_at), "PPP", { locale: he })})
+                                                    </p>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
 
@@ -614,32 +641,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                         </div>
                     )}
                 </div>
-
-                {/* User Consents (Existing, if not the receipt form) */}
-                {userConsent && (!relevantConsentTemplate || userConsent.consent_template_id !== relevantConsentTemplate.id) && (
-                    <>
-                        <Separator />
-                        <div>
-                            <h4 className="font-semibold mb-3 flex items-center gap-2">
-                                <ShieldAlert className="h-5 w-5 text-primary" />
-                                טופס הסכמה חתום (קודם)
-                            </h4>
-                            <div className="space-y-4">
-                                <div className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
-                                    <p className="font-medium">{order.consent_templates?.name || 'טופס לא ידוע'}</p>
-                                    <p className="text-sm text-muted-foreground">נחתם על ידי: {userConsent.full_name_signed || 'לא צוין'}</p>
-                                    <p className="text-xs text-muted-foreground">בתאריך: {format(new Date(userConsent.signed_at), "PPP HH:mm", { locale: he })}</p>
-                                    {userConsent.signature_image_url && (
-                                        <div className="mt-2">
-                                            <p className="text-xs text-muted-foreground mb-1">חתימה:</p>
-                                            <img src={userConsent.signature_image_url} alt="חתימת משתמש" className="w-full max-w-[200px] h-auto object-contain border rounded-md bg-white" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </>
-                )}
             </div>
         );
     };
@@ -659,7 +660,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                         הזמנה מספר {orderId.substring(0, 8)}... של {userName}
                     </DialogDescription>
                 </DialogHeader>
-                {isLoadingOrder || isLoadingOrderItemReceipts || isLoadingUserConsent ? renderLoading() : orderError ? renderError(orderError) : userConsentError ? renderError(userConsentError) : order ? renderDetails(order) : null}
+                {isLoadingOrder || isLoadingOrderItemReceipts || isLoadingRelevantConsentTemplates || isLoadingUserConsents ? renderLoading() : orderError ? renderError(orderError) : relevantConsentTemplatesError ? renderError(relevantConsentTemplatesError) : userConsentsError ? renderError(userConsentsError) : order ? renderDetails(order) : null}
                 <DialogFooter>
                     {/* The main action button is now inside renderDetails for conditional rendering */}
                 </DialogFooter>
