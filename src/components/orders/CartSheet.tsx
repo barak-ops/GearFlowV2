@@ -8,7 +8,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/contexts/CartContext";
+import { useCart } => "@/contexts/CartContext";
 import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert, RotateCcw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
@@ -60,7 +60,7 @@ export function CartSheet() {
   const { cart, removeFromCart, clearCart } = useCart();
   const { user, session } = useSession();
   const { profile } = useProfile();
-  const [startDate, setStartDate] = useState<Date>();
+  const [startDate, setStartDate] = useState<Date>(new Date()); // Default to today
   const [endDate, setEndDate] = useState<Date>();
   const [notes, setNotes] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -216,7 +216,7 @@ export function CartSheet() {
       
       showSuccess(message);
       clearCart();
-      setStartDate(undefined);
+      setStartDate(new Date()); // Reset to today
       setEndDate(undefined);
       setNotes("");
       setIsRecurring(false);
@@ -308,7 +308,7 @@ export function CartSheet() {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="flex flex-col sm:max-w-md" dir="rtl"> {/* Added dir="rtl" here */}
+      <SheetContent className="flex flex-col sm:max-w-md" dir="rtl">
         <SheetHeader>
           <SheetTitle>סל בקשות</SheetTitle>
           <SheetDescription>
