@@ -34,6 +34,7 @@ const consentTemplateSchema = z.object({
   content: z.string().min(50, "תוכן התבנית חייב להיות לפחות 50 תווים."),
   is_mandatory: z.boolean().default(false),
   notes: z.string().optional(), // New notes field
+  is_receipt_form: z.boolean().default(false), // New field
 });
 
 export function ConsentTemplateAddDialog() {
@@ -47,6 +48,7 @@ export function ConsentTemplateAddDialog() {
       content: "",
       is_mandatory: false,
       notes: "", // Default value for notes
+      is_receipt_form: false, // Default value for new field
     },
   });
 
@@ -150,6 +152,26 @@ export function ConsentTemplateAddDialog() {
                     <FormLabel>טופס חובה</FormLabel>
                     <FormDescription>
                       סמן אם טופס זה חייב באישור המשתמש לפני שליחת בקשת השאלה.
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="is_receipt_form"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-x-reverse rounded-lg border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>טופס קבלה</FormLabel>
+                    <FormDescription>
+                      סמן אם טופס זה ישמש כטופס קבלה ויוצג במסך פרטי ההזמנה.
                     </FormDescription>
                   </div>
                 </FormItem>

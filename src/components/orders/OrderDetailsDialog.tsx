@@ -29,6 +29,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
 
 const GENERATE_RECEIPT_PDF_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/generate-receipt-pdf";
 
@@ -47,7 +48,7 @@ interface OrderItemDetail {
 }
 
 interface ConsentDetail {
-    consent_templates: { name: string } | null;
+    consent_templates: { name: string; content: string; is_receipt_form: boolean } | null; // Added content and is_receipt_form
     signature_image_url: string | null;
     full_name_signed: string | null;
     signed_at: string;
@@ -150,7 +151,7 @@ const fetchConsentDetails = async (consentId: string): Promise<ConsentDetail> =>
     const { data, error } = await supabase
         .from("user_consents")
         .select(`
-            consent_templates ( name ),
+            consent_templates ( name, content, is_receipt_form ),
             signature_image_url,
             full_name_signed,
             signed_at
@@ -375,6 +376,8 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const allItemsReceived = items.length > 0 && items.every(item => receivedItems.has(item.item_id));
         const canSignReceipt = allItemsReceived && !isCustomerSigned;
 
+        const receiptFormContent = consent?.consent_templates?.is_receipt_form ? consent.consent_templates.content : null;
+
         return (
             <div className="space-y-6" dir="rtl">
                 {/* General Info */}
@@ -481,6 +484,16 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                             <p className="text-sm text-muted-foreground mb-2">
                                 לאחר אישור קבלת כל הפריטים, הלקוח נדרש לחתום דיגיטלית על מסמך הקבלה.
                             </p>
+                            {receiptFormContent && (
+                                <div className="space-y-1 mt-2">
+                                    <Label className="text-xs">
+                                        תוכן טופס הקבלה:
+                                    </Label>
+                                    <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs">
+                                        <p className="whitespace-pre-wrap">{receiptFormContent}</p>
+                                    </ScrollArea>
+                                </div>
+                            )}
                             <div className="space-y-1 mt-2">
                                 <Label className="text-xs">
                                     חתימה דיגיטלית
@@ -532,7 +545,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </div>
 
                 {/* User Consents (Existing) */}
-                {consent && (
+                {consent && !consent.consent_templates?.is_receipt_form && ( // Only show if it's not the receipt form
                     <>
                         <Separator />
                         <div>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Trash2, FileText, ShieldAlert, MessageSquare } from "lucide-react";
+import { Trash2, FileText, ShieldAlert, MessageSquare, ReceiptText } from "lucide-react";
 import { ConsentTemplateEditDialog } from "./ConsentTemplateEditDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ interface ConsentTemplate {
   content: string;
   is_mandatory: boolean;
   notes: string | null; // Added notes field
+  is_receipt_form: boolean; // New field
   created_at: string;
 }
 
@@ -57,8 +58,9 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
         <TableRow>
           <TableHead>שם התבנית</TableHead>
           <TableHead>סטטוס</TableHead>
+          <TableHead>טופס קבלה</TableHead> {/* New TableHead */}
           <TableHead>תוכן</TableHead>
-          <TableHead>הערות</TableHead> {/* New TableHead for notes */}
+          <TableHead>הערות</TableHead>
           <TableHead className="text-right">פעולות</TableHead>
         </TableRow>
       </TableHeader>
@@ -76,6 +78,16 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
                     <Badge variant="secondary">אופציונלי</Badge>
                 )}
             </TableCell>
+            <TableCell> {/* New TableCell for is_receipt_form */}
+                {template.is_receipt_form ? (
+                    <Badge className="flex items-center gap-1 w-fit bg-blue-500 hover:bg-blue-600">
+                        <ReceiptText className="h-3 w-3" />
+                        כן
+                    </Badge>
+                ) : (
+                    <Badge variant="secondary">לא</Badge>
+                )}
+            </TableCell>
             <TableCell>
               <TooltipProvider>
                 <Tooltip>
@@ -90,7 +102,7 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
                 </Tooltip>
               </TooltipProvider>
             </TableCell>
-            <TableCell> {/* New TableCell for notes */}
+            <TableCell>
               {template.notes ? (
                 <TooltipProvider>
                   <Tooltip>
