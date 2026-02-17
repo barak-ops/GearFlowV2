@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
-import { ShoppingCart, Trash2, Calendar as CalendarIcon, ShieldAlert, RotateCcw, Loader2 } from "lucide-react";
+import { ShoppingCart, Trash2, Calendar as CalendarIcon, RotateCcw, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import React, { useState, useEffect, useRef } from "react";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showError, showSuccess } from "@/utils/toast";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/contexts/SessionContext";
@@ -32,34 +32,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
-import { useProfile } from "@/hooks/useProfile";
-import SignatureCanvas from 'react-signature-canvas';
 
 const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
-
-const fetchMandatoryTemplates = async () => {
-    const { data, error } = await supabase
-        .from("consent_templates")
-        .select("id, name, content, is_mandatory");
-    if (error) throw error;
-    return data;
-};
-
-const fetchUserConsents = async (userId: string | undefined) => {
-    if (!userId) return [];
-    const { data, error } = await supabase
-        .from("user_consents")
-        .select("consent_template_id, signature_image_url, full_name_signed")
-        .eq("user_id", userId);
-    if (error) throw error;
-    return data;
-};
 
 export function CartSheet() {
   const { cart, removeFromCart, clearCart } = useCart();
   const { user, session } = useSession();
-  const { profile } = useProfile();
   const [startDate, setStartDate] = useState<Date>(new Date()); // Set default to today
   const [endDate, setEndDate] = useState<Date>();
   const [notes, setNotes] = useState("");
@@ -67,92 +45,22 @@ export function CartSheet() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceCount, setRecurrenceCount] = useState(1);
   const [recurrenceInterval, setRecurrenceInterval] = useState<'day' | 'week' | 'month'>('week');
-  const sigCanvasRefs = useRef<Record<string, SignatureCanvas | null>>({});
   
   const queryClient = useQueryClient();
 
-  const { data: allConsentTemplates, isLoading: isLoadingTemplates } = useQuery({
-    queryKey: ["all-consent-templates"],
-    queryFn: fetchMandatoryTemplates,
-    enabled: isOpen && cart.length > 0,
-  });
-
-  const mandatoryTemplates = allConsentTemplates?.filter(t => t.is_mandatory) || [];
-
-  const { data: userConsents, refetch: refetchUserConsents, isLoading: isLoadingUserConsents } = useQuery({
-    queryKey: ["user-consents", user?.id],
-    queryFn: () => fetchUserConsents(user?.id),
-    enabled: !!user && isOpen && cart.length > 0,
-  });
-
-  const fullName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
-
-  const uploadSignature = async (templateId: string, signatureDataUrl: string) => {
-    if (!user) throw new Error("User not authenticated.");
-
-    const byteCharacters = atob(signatureDataUrl.split(',')[1]);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'image/png' });
-
-    const fileExt = 'png';
-    const fileName = `${user.id}_${templateId}_${Date.now()}.${fileExt}`;
-    const filePath = `signatures/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('signatures')
-      .upload(filePath, blob, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage
-      .from('signatures')
-      .getPublicUrl(filePath);
-    
-    return data.publicUrl;
-  };
-
   const createOrderMutation = useMutation({
-    mutationFn: async ({ startDate, endDate, notes, isRecurring, recurrenceCount, recurrenceInterval, newConsents }: { 
+    mutationFn: async ({ startDate, endDate, notes, isRecurring, recurrenceCount, recurrenceInterval }: { 
         startDate: Date; 
         endDate: Date; 
         notes: string;
         isRecurring: boolean;
         recurrenceCount: number;
         recurrenceInterval: 'day' | 'week' | 'month';
-        newConsents: { templateId: string; signatureDataUrl: string; fullName: string }[];
     }) => {
       if (!session || !user) throw new Error("User not authenticated");
       if (cart.length === 0) throw new Error("Cart is empty");
 
-      // 1. Upload new signatures and prepare consent records for upsert
-      const consentsToUpsert = [];
-      for (const consent of newConsents) {
-        const signatureImageUrl = await uploadSignature(consent.templateId, consent.signatureDataUrl);
-        consentsToUpsert.push({
-            user_id: user.id,
-            consent_template_id: consent.templateId,
-            signature_image_url: signatureImageUrl,
-            full_name_signed: consent.fullName,
-            signed_at: new Date().toISOString(), // Update signed_at timestamp
-        });
-      }
-
-      // 2. Upsert new consents into the database if there are any
-      if (consentsToUpsert.length > 0) {
-          const { error: consentError } = await supabase
-              .from("user_consents")
-              .upsert(consentsToUpsert, { onConflict: 'user_id, consent_template_id' }); // Use upsert with conflict resolution
-          if (consentError) throw consentError;
-      }
-
-      // 3. Call the Edge Function to create the order(s)
+      // Call the Edge Function to create the order(s)
       const payload = {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
@@ -194,7 +102,6 @@ export function CartSheet() {
       setIsOpen(false);
       queryClient.invalidateQueries({ queryKey: ["my-orders"] });
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
-      refetchUserConsents(); // Refetch user consents to update the UI state
     },
     onError: (error) => {
       showError(`שגיאה בשליחת הבקשה: ${error.message}`);
@@ -215,39 +122,6 @@ export function CartSheet() {
         return;
     }
 
-    if (isLoadingUserConsents) {
-        showError("טוען נתוני הסכמות משתמש, אנא המתן רגע ונסה שוב.");
-        return;
-    }
-
-    const newConsentsToCreate: { templateId: string; signatureDataUrl: string; fullName: string }[] = [];
-    
-    const allSigned = mandatoryTemplates.every(template => {
-        const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
-        
-        if (hasConsentedBefore) {
-            return true; // Already signed, validation passes for this template.
-        }
-
-        const signatureCanvas = sigCanvasRefs.current[template.id];
-        if (signatureCanvas && !signatureCanvas.isEmpty()) {
-            const signatureDataUrl = signatureCanvas.toDataURL();
-            newConsentsToCreate.push({
-                templateId: template.id,
-                signatureDataUrl: signatureDataUrl,
-                fullName: fullName
-            });
-            return true; // New signature provided, validation passes.
-        }
-
-        return false; // Not signed before and no new signature. Validation fails.
-    });
-
-    if (!allSigned) {
-        showError("עליך לחתום על כל טפסי ההסכמה הנדרשים.");
-        return;
-    }
-
     createOrderMutation.mutate({ 
         startDate, 
         endDate, 
@@ -255,12 +129,7 @@ export function CartSheet() {
         isRecurring, 
         recurrenceCount, 
         recurrenceInterval,
-        newConsents: newConsentsToCreate,
     });
-  };
-
-  const handleClearSignature = (templateId: string) => {
-    sigCanvasRefs.current[templateId]?.clear();
   };
 
   return (
@@ -385,62 +254,6 @@ export function CartSheet() {
                     </div>
                 )}
               </div>
-
-              <Separator />
-
-              {/* Mandatory Consent Forms */}
-              {isLoadingUserConsents ? (
-                <div className="flex justify-center items-center p-4">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : mandatoryTemplates.length > 0 && (
-                <div className="space-y-4">
-                    <h3 className="font-semibold flex items-center gap-2 text-red-600">
-                        <ShieldAlert className="h-5 w-5" />
-                        טפסי הסכמה (חובה)
-                    </h3>
-                    {mandatoryTemplates.map((template) => {
-                        const hasConsentedBefore = userConsents?.some(uc => uc.consent_template_id === template.id);
-                        const currentSignatureUrl = userConsents?.find(uc => uc.consent_template_id === template.id)?.signature_image_url;
-
-                        return (
-                        <div key={template.id} className="space-y-2 border p-3 rounded-md bg-red-50/50">
-                            <h4 className="font-medium text-sm">{template.name}</h4>
-                            <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs">
-                                <p className="whitespace-pre-wrap">{template.content}</p>
-                            </ScrollArea>
-                            <div className="space-y-1 mt-2">
-                                <Label className="text-xs">
-                                    חתימה דיגיטלית
-                                </Label>
-                                <div className="border rounded-md bg-white relative">
-                                    {hasConsentedBefore && currentSignatureUrl ? (
-                                        <img src={currentSignatureUrl} alt="חתימה קיימת" className="w-full h-24 object-contain" />
-                                    ) : (
-                                        <>
-                                            <SignatureCanvas
-                                                ref={(ref) => sigCanvasRefs.current[template.id] = ref}
-                                                penColor='black'
-                                                canvasProps={{ width: 350, height: 100, className: 'sigCanvas' }}
-                                                backgroundColor='rgb(255,255,255)'
-                                            />
-                                            <Button 
-                                                type="button" 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="absolute top-1 right-1 h-6 w-6"
-                                                onClick={() => handleClearSignature(template.id)}
-                                            >
-                                                <RotateCcw className="h-3 w-3" />
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    );})}
-                </div>
-              )}
 
               <div className="space-y-2">
                 <h3 className="font-semibold">הערות לבקשה</h3>
