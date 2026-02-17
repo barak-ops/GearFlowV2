@@ -218,8 +218,18 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
       setImageFile(null);
       setPreviewUrl(null);
     },
-    onError: (error) => {
-      showError(`שגיאה בהוספת הפריט: ${error.message}`);
+    onError: (error: any) => {
+      if (error.code === '23505') {
+        if (error.message?.includes('sku')) {
+          showError("מק״ט זה כבר קיים במערכת. אנא השתמש במק״ט ייחודי.");
+        } else if (error.message?.includes('serial_number')) {
+          showError("מספר סידורי זה כבר קיים במערכת. אנא השתמש במספר ייחודי.");
+        } else {
+          showError("קיים פריט עם נתונים זהים (מק״ט או מספר סידורי) במערכת.");
+        }
+      } else {
+        showError(`שגיאה בהוספת הפריט: ${error.message}`);
+      }
     },
   });
 
