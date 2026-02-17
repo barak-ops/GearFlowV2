@@ -1,0 +1,149 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/contexts/SessionContext";
+import { Loader2 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { he } from "date-fns/locale";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
+
+const statusTranslations: Record<string, string> = {
+    pending: 'ממתין לאישור',
+    approved: 'מאושר',
+    rejected: 'נדחה',
+    checked_out: 'מושכר',
+    returned: 'הוחזר',
+    cancelled: 'בוטל'
+};
+
+const statusColors: Record<string, string> = {
+    pending: 'bg-yellow-500',
+    approved: 'bg-green-500',
+    rejected: 'bg-red-500',
+    checked_out: 'bg-blue-500',
+    returned: 'bg-gray-500',
+    cancelled: 'bg-gray-400'
+};
+
+const recurrenceIntervalTranslations: Record<string, string> = {
+    day: 'יומי',
+    week: 'שבועי',
+    month: 'חודשי',
+};
+
+const MyOrders = () => {
+  const { user } = useSession();
+
+  const fetchOrders = async () => {
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        created_at,
+        requested_start_date,
+        requested_end_date,
+        status,
+        notes,
+        is_recurring,
+        recurrence_count,
+        recurrence_interval
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    return data;
+  };
+
+  const { data: orders, isLoading, error } = useQuery({
+    queryKey: ["my-orders"],
+    queryFn: fetchOrders,
+    enabled: !!user,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-16 w-16 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div>שגיאה בטעינת ההזמנות: {error.message}</div>;
+  }
+
+  return (
+    <div className="p-8">
+      <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
+      <div className="bg-white rounded-lg shadow overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>תאריך יצירה</TableHead>
+              <TableHead>תאריך התחלה</TableHead>
+              <TableHead>תאריך סיום</TableHead>
+              <TableHead>סטטוס</TableHead>
+              <TableHead>מחזוריות</TableHead>
+              <TableHead>הערות</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders?.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell>{format(new Date(order.created_at), "PPP", { locale: he })}</TableCell>
+                <TableCell>{format(new Date(order.requested_start_date), "PPP", { locale: he })}</TableCell>
+                <TableCell>{format(new Date(order.requested_end_date), "PPP", { locale: he })}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={`border-transparent text-white ${statusColors[order.status]}`}>
+                    {statusTranslations[order.status]}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                    {order.is_recurring && order.recurrence_count && order.recurrence_interval ? (
+                        <Badge variant="secondary">
+                            {order.recurrence_count} פעמים, {recurrenceIntervalTranslations[order.recurrence_interval]}
+                        </Badge>
+                    ) : (
+                        <span className="text-muted-foreground">-</span>
+                    )}
+                </TableCell>
+                <TableCell>
+                  {order.notes ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs break-words">{order.notes}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {orders?.length === 0 && <p className="text-center p-8 text-muted-foreground">לא נמצאו הזמנות.</p>}
+      </div>
+    </div>
+  );
+};
+
+export default MyOrders;

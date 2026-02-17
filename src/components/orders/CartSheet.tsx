@@ -1,0 +1,273 @@
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetFooter,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { useCart } from "@/contexts/CartContext";
+import { ShoppingCart, Trash2, Calendar as CalendarIcon } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { he } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import React, { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { showError, showSuccess } from "@/utils/toast";
+import { Textarea } from "@/components/ui/textarea";
+import { useSession } from "@/contexts/SessionContext";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
+
+export function CartSheet() {
+  const { cart, removeFromCart, clearCart } = useCart();
+  const { user, session } = useSession();
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
+  const [notes, setNotes] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceCount, setRecurrenceCount] = useState(1);
+  const [recurrenceInterval, setRecurrenceInterval] = useState<'day' | 'week' | 'month'>('week');
+  const queryClient = useQueryClient();
+
+  const createOrderMutation = useMutation({
+    mutationFn: async ({ startDate, endDate, notes, isRecurring, recurrenceCount, recurrenceInterval }: { 
+        startDate: Date; 
+        endDate: Date; 
+        notes: string;
+        isRecurring: boolean;
+        recurrenceCount: number;
+        recurrenceInterval: 'day' | 'week' | 'month';
+    }) => {
+      if (!session) throw new Error("User not authenticated");
+      if (cart.length === 0) throw new Error("Cart is empty");
+
+      const payload = {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        notes: notes,
+        cartItems: cart.map(item => ({ id: item.id })),
+        isRecurring,
+        recurrenceCount,
+        recurrenceInterval,
+      };
+
+      const response = await fetch(CREATE_RECURRING_ORDERS_FUNCTION_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "שגיאה לא ידועה בשליחת הבקשה.");
+      }
+      return result;
+    },
+    onSuccess: (_, variables) => {
+      const message = variables.isRecurring && variables.recurrenceCount > 1
+        ? `נוצרו בהצלחה ${variables.recurrenceCount} בקשות מחזוריות!`
+        : "הבקשה נשלחה בהצלחה!";
+      
+      showSuccess(message);
+      clearCart();
+      setStartDate(undefined);
+      setEndDate(undefined);
+      setNotes("");
+      setIsRecurring(false);
+      setRecurrenceCount(1);
+      setIsOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["my-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["all-orders"] });
+    },
+    onError: (error) => {
+      showError(`שגיאה בשליחת הבקשה: ${error.message}`);
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!startDate || !endDate) {
+      showError("יש לבחור תאריך התחלה וסיום.");
+      return;
+    }
+    if (endDate <= startDate) {
+      showError("תאריך הסיום חייב להיות אחרי תאריך ההתחלה.");
+      return;
+    }
+    if (isRecurring && (recurrenceCount < 1 || recurrenceCount > 30)) {
+        showError("מספר הפעמים חייב להיות בין 1 ל-30.");
+        return;
+    }
+
+    createOrderMutation.mutate({ 
+        startDate, 
+        endDate, 
+        notes, 
+        isRecurring, 
+        recurrenceCount, 
+        recurrenceInterval 
+    });
+  };
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        <Button variant="outline" className="relative">
+          <ShoppingCart className="h-5 w-5" />
+          {cart.length > 0 && (
+            <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full h-5 w-5 text-xs flex items-center justify-center">
+              {cart.length}
+            </span>
+          )}
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="flex flex-col">
+        <SheetHeader>
+          <SheetTitle>סל בקשות</SheetTitle>
+          <SheetDescription>
+            אלו הפריטים שבחרת. בחר תאריכים ושלח את הבקשה לאישור.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-grow overflow-y-auto">
+          {cart.length === 0 ? (
+            <p className="text-muted-foreground text-center mt-8">הסל ריק.</p>
+          ) : (
+            <div className="space-y-4">
+              {cart.map((item) => (
+                <div key={item.id} className="flex justify-between items-center">
+                  <span>{item.name}</span>
+                  <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {cart.length > 0 && (
+          <>
+            <Separator className="my-4" />
+            <div className="space-y-4">
+              <h3 className="font-semibold">תאריכי השאלה</h3>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="ml-2 h-4 w-4" />
+                    {startDate ? format(startDate, "PPP", { locale: he }) : <span>תאריך התחלה</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={startDate} onSelect={setStartDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !endDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="ml-2 h-4 w-4" />
+                    {endDate ? format(endDate, "PPP", { locale: he }) : <span>תאריך סיום</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={endDate} onSelect={setEndDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="space-y-4">
+                <div className="flex items-center space-x-2 space-x-reverse">
+                    <Checkbox 
+                        id="recurring" 
+                        checked={isRecurring} 
+                        onCheckedChange={(checked) => setIsRecurring(!!checked)}
+                    />
+                    <Label htmlFor="recurring" className="font-semibold cursor-pointer">
+                        הזמנה מחזורית
+                    </Label>
+                </div>
+
+                {isRecurring && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="count">מספר פעמים (1-30)</Label>
+                            <Input 
+                                id="count"
+                                type="number"
+                                min={1}
+                                max={30}
+                                value={recurrenceCount}
+                                onChange={(e) => setRecurrenceCount(Math.min(30, Math.max(1, parseInt(e.target.value) || 1)))}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="interval">מרווח</Label>
+                            <Select 
+                                onValueChange={(value: 'day' | 'week' | 'month') => setRecurrenceInterval(value)} 
+                                defaultValue={recurrenceInterval}
+                            >
+                                <SelectTrigger id="interval">
+                                    <SelectValue placeholder="בחר מרווח" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="day">יום</SelectItem>
+                                    <SelectItem value="week">שבוע</SelectItem>
+                                    <SelectItem value="month">חודש</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-2 mt-4">
+                <h3 className="font-semibold">הערות לבקשה (אופציונלי)</h3>
+                <Textarea
+                placeholder="הערות מיוחדות, בקשות ספציפיות וכו'..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                />
+            </div>
+            <SheetFooter className="mt-4">
+              <Button onClick={handleSubmit} className="w-full" disabled={createOrderMutation.isPending}>
+                {createOrderMutation.isPending ? "שולח בקשה..." : "שלח בקשה לאישור"}
+              </Button>
+            </SheetFooter>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
