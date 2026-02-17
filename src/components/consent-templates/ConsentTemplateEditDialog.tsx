@@ -34,7 +34,6 @@ const consentTemplateSchema = z.object({
   content: z.string().min(50, "תוכן התבנית חייב להיות לפחות 50 תווים."),
   is_mandatory: z.boolean().default(false),
   notes: z.string().optional(), // New notes field
-  is_receipt_form: z.boolean().default(false), // New field
 });
 
 interface ConsentTemplate {
@@ -43,7 +42,6 @@ interface ConsentTemplate {
   content: string;
   is_mandatory: boolean;
   notes: string | null; // Added notes field
-  is_receipt_form: boolean; // New field
   created_at: string;
 }
 
@@ -62,7 +60,6 @@ export function ConsentTemplateEditDialog({ template }: ConsentTemplateEditDialo
       content: template.content,
       is_mandatory: template.is_mandatory || false,
       notes: template.notes || "", // Default value for notes
-      is_receipt_form: template.is_receipt_form || false, // Default value for new field
     },
   });
 
@@ -166,26 +163,6 @@ export function ConsentTemplateEditDialog({ template }: ConsentTemplateEditDialo
                     <FormLabel>טופס חובה</FormLabel>
                     <FormDescription>
                       סמן אם טופס זה חייב באישור המשתמש לפני שליחת בקשת השאלה.
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="is_receipt_form"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-x-reverse rounded-lg border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>טופס קבלה</FormLabel>
-                    <FormDescription>
-                      סמן אם טופס זה ישמש כטופס קבלה ויוצג במסך פרטי ההזמנה.
                     </FormDescription>
                   </div>
                 </FormItem>

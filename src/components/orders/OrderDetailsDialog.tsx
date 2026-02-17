@@ -29,7 +29,6 @@ import { showSuccess, showError } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea
 
 const GENERATE_RECEIPT_PDF_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/generate-receipt-pdf";
 
@@ -48,7 +47,7 @@ interface OrderItemDetail {
 }
 
 interface ConsentDetail {
-    consent_templates: { name: string; content: string; is_receipt_form: boolean } | null; // Added content and is_receipt_form
+    consent_templates: { name: string } | null;
     signature_image_url: string | null;
     full_name_signed: string | null;
     signed_at: string;
@@ -119,7 +118,8 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     serial_number,
                     image_url,
                     categories ( name )
-                )
+                ),
+                order_item_receipts ( id, signature_image_url, received_at )
             ),
             consent_form_id,
             receipt_pdf_url
@@ -128,30 +128,14 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
         .single();
 
     if (error) throw new Error(error.message);
-
-    // Manually fetch order_item_receipts for each item
-    const orderItemsWithReceipts = await Promise.all(data.order_items.map(async (orderItem: any) => {
-        const { data: receipts, error: receiptsError } = await supabase
-            .from("order_item_receipts")
-            .select("id, signature_image_url, received_at")
-            .eq("order_id", orderId)
-            .eq("item_id", orderItem.item_id);
-
-        if (receiptsError) {
-            console.error("Error fetching receipts for item:", orderItem.item_id, receiptsError);
-            return { ...orderItem, order_item_receipts: [] };
-        }
-        return { ...orderItem, order_item_receipts: receipts };
-    }));
-
-    return { ...data, order_items: orderItemsWithReceipts } as OrderDetail;
+    return data as OrderDetail;
 };
 
 const fetchConsentDetails = async (consentId: string): Promise<ConsentDetail> => {
     const { data, error } = await supabase
         .from("user_consents")
         .select(`
-            consent_templates ( name, content, is_receipt_form ),
+            consent_templates ( name ),
             signature_image_url,
             full_name_signed,
             signed_at
@@ -376,10 +360,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const allItemsReceived = items.length > 0 && items.every(item => receivedItems.has(item.item_id));
         const canSignReceipt = allItemsReceived && !isCustomerSigned;
 
-        // Determine if the associated consent form is a receipt form
-        const isConsentReceiptForm = consent?.consent_templates?.is_receipt_form;
-        const receiptFormContent = isConsentReceiptForm ? consent?.consent_templates?.content : null;
-
         return (
             <div className="space-y-6" dir="rtl">
                 {/* General Info */}
@@ -437,7 +417,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                     <TableHead>פריט</TableHead>
                                     <TableHead>קטגוריה</TableHead>
                                     <TableHead>מספר סידורי</TableHead>
-                                    <TableHead className="text-center">התקבל</TableHead>
+                                    <TableHead className="text-center">התקבל</TableHead> {/* New column */}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -453,7 +433,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                             <Checkbox
                                                 checked={receivedItems.has(item.item_id)}
                                                 onCheckedChange={(checked) => handleItemReceivedChange(item.item_id, !!checked)}
-                                                disabled={order.status === 'checked_out' || order.status === 'returned'}
+                                                disabled={order.status === 'checked_out' || order.status === 'returned'} // Disable if already checked out or returned
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -486,16 +466,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                             <p className="text-sm text-muted-foreground mb-2">
                                 לאחר אישור קבלת כל הפריטים, הלקוח נדרש לחתום דיגיטלית על מסמך הקבלה.
                             </p>
-                            {receiptFormContent && ( // Display receipt form content here
-                                <div className="space-y-1 mt-2">
-                                    <Label className="text-xs">
-                                        תוכן טופס הקבלה:
-                                    </Label>
-                                    <ScrollArea className="h-24 w-full rounded border bg-white p-2 text-xs">
-                                        <p className="whitespace-pre-wrap">{receiptFormContent}</p>
-                                    </ScrollArea>
-                                </div>
-                            )}
                             <div className="space-y-1 mt-2">
                                 <Label className="text-xs">
                                     חתימה דיגיטלית
@@ -547,7 +517,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </div>
 
                 {/* User Consents (Existing) */}
-                {consent && !isConsentReceiptForm && ( // Only show if it's not the receipt form
+                {consent && (
                     <>
                         <Separator />
                         <div>
@@ -592,9 +562,9 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </DialogHeader>
                 {isLoadingOrder || isLoadingConsent ? renderLoading() : orderError ? renderError(orderError) : consentError ? renderError(consentError) : order ? renderDetails(order, consent || null) : null}
                 <DialogFooter>
-                    {order?.status === 'approved' && order.order_items.length > 0 && order.order_items.every(item => receivedItems.has(item.item_id)) && !isCustomerSigned && (
+                    {order?.status === 'approved' && allItemsReceived && isCustomerSigned && (
                         <Button 
-                            onClick={handleSignReceipt} // Call handleSignReceipt directly
+                            onClick={() => generateAndSignReceiptMutation.mutate("")} // Empty string for signature as it's already handled
                             disabled={generateAndSignReceiptMutation.isPending}
                         >
                             {generateAndSignReceiptMutation.isPending ? "מעדכן סטטוס..." : "השכר ציוד"}

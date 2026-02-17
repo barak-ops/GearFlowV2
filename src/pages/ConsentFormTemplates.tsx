@@ -11,14 +11,13 @@ interface ConsentTemplate {
   content: string;
   is_mandatory: boolean;
   notes: string | null; // Added notes field
-  is_receipt_form: boolean; // New field
   created_at: string;
 }
 
 const fetchConsentTemplates = async () => {
   const { data, error } = await supabase
     .from("consent_templates")
-    .select(`id, name, content, is_mandatory, notes, is_receipt_form, created_at`) // Select notes and is_receipt_form
+    .select(`id, name, content, is_mandatory, notes, created_at`) // Select notes
   
   if (error) throw new Error(error.message);
   return data as ConsentTemplate[];
