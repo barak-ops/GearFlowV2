@@ -16,6 +16,7 @@ import { he } from "date-fns/locale";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
+import { OrderDetailsDialog } from "@/components/orders/OrderDetailsDialog"; // Import the dialog component
 
 const statusTranslations: Record<string, string> = {
     pending: 'ממתין לאישור',
@@ -57,7 +58,8 @@ const MyOrders = () => {
         notes,
         is_recurring,
         recurrence_count,
-        recurrence_interval
+        recurrence_interval,
+        profiles ( first_name, last_name )
       `)
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
@@ -96,6 +98,7 @@ const MyOrders = () => {
               <TableHead>סטטוס</TableHead>
               <TableHead>מחזוריות</TableHead>
               <TableHead>הערות</TableHead>
+              <TableHead className="text-right">פעולות</TableHead> {/* New TableHead for actions */}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -135,6 +138,9 @@ const MyOrders = () => {
                   ) : (
                     <span className="text-muted-foreground">-</span>
                   )}
+                </TableCell>
+                <TableCell className="text-right">
+                    <OrderDetailsDialog orderId={order.id} userName={`${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim()} />
                 </TableCell>
               </TableRow>
             ))}
