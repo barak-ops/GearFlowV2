@@ -33,6 +33,7 @@ const consentTemplateSchema = z.object({
   name: z.string().min(2, "שם התבנית חובה."),
   content: z.string().min(50, "תוכן התבנית חייב להיות לפחות 50 תווים."),
   is_mandatory: z.boolean().default(false),
+  notes: z.string().optional(), // New notes field
 });
 
 export function ConsentTemplateAddDialog() {
@@ -45,6 +46,7 @@ export function ConsentTemplateAddDialog() {
       name: "",
       content: "",
       is_mandatory: false,
+      notes: "", // Default value for notes
     },
   });
 
@@ -109,6 +111,23 @@ export function ConsentTemplateAddDialog() {
                     <Textarea 
                         placeholder="הכנס את הטקסט המלא של טופס ההסכמה כאן..." 
                         rows={10}
+                        {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>הערות (אופציונלי)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                        placeholder="הערות פנימיות לתבנית זו..." 
+                        rows={3}
                         {...field} 
                     />
                   </FormControl>

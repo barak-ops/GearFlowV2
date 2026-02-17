@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
-import { Trash2, FileText, ShieldAlert } from "lucide-react";
+import { Trash2, FileText, ShieldAlert, MessageSquare } from "lucide-react";
 import { ConsentTemplateEditDialog } from "./ConsentTemplateEditDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ interface ConsentTemplate {
   name: string;
   content: string;
   is_mandatory: boolean;
+  notes: string | null; // Added notes field
   created_at: string;
 }
 
@@ -57,6 +58,7 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
           <TableHead>שם התבנית</TableHead>
           <TableHead>סטטוס</TableHead>
           <TableHead>תוכן</TableHead>
+          <TableHead>הערות</TableHead> {/* New TableHead for notes */}
           <TableHead className="text-right">פעולות</TableHead>
         </TableRow>
       </TableHeader>
@@ -87,6 +89,24 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+            </TableCell>
+            <TableCell> {/* New TableCell for notes */}
+              {template.notes ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-md">
+                      <p className="whitespace-pre-wrap">{template.notes}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
             </TableCell>
             <TableCell className="flex gap-2 justify-end">
               <ConsentTemplateEditDialog template={template} />
