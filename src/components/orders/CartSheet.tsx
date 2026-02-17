@@ -308,7 +308,7 @@ export function CartSheet() {
           )}
         </Button>
       </SheetTrigger>
-      <SheetContent className="flex flex-col sm:max-w-md">
+      <SheetContent className="flex flex-col sm:max-w-md" dir="rtl"> {/* Added dir="rtl" here */}
         <SheetHeader>
           <SheetTitle>סל בקשות</SheetTitle>
           <SheetDescription>

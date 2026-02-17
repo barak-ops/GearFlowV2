@@ -35,6 +35,13 @@ interface OrderItemDetail {
     equipment_items: EquipmentItemDetail | null;
 }
 
+interface ConsentDetail {
+    consent_templates: { name: string } | null;
+    signature_image_url: string | null;
+    full_name_signed: string | null;
+    signed_at: string;
+}
+
 interface OrderDetail {
     id: string;
     requested_start_date: string;
@@ -46,6 +53,7 @@ interface OrderDetail {
     recurrence_count: number | null;
     recurrence_interval: 'day' | 'week' | 'month' | null;
     order_items: OrderItemDetail[];
+    user_consents: ConsentDetail[]; // Added user_consents
 }
 
 interface OrderDetailsDialogProps {
@@ -97,6 +105,12 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     image_url,
                     categories ( name )
                 )
+            ),
+            user_consents (
+                consent_templates ( name ),
+                signature_image_url,
+                full_name_signed,
+                signed_at
             )
         `)
         .eq("id", orderId)
@@ -138,7 +152,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const items = order.order_items.map(oi => oi.equipment_items).filter(item => item !== null) as EquipmentItemDetail[];
         
         return (
-            <div className="space-y-6">
+            <div className="space-y-6" dir="rtl"> {/* Added dir="rtl" here */}
                 {/* General Info */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
@@ -212,6 +226,34 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                     </div>
                     {items.length === 0 && <p className="text-center text-muted-foreground p-4">לא נמצאו פריטים להזמנה זו.</p>}
                 </div>
+
+                {/* User Consents */}
+                {order.user_consents && order.user_consents.length > 0 && (
+                    <>
+                        <Separator />
+                        <div>
+                            <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                <ShieldAlert className="h-5 w-5 text-primary" />
+                                טפסי הסכמה חתומים
+                            </h4>
+                            <div className="space-y-4">
+                                {order.user_consents.map((consent, index) => (
+                                    <div key={index} className="border p-3 rounded-md bg-gray-50 dark:bg-gray-800">
+                                        <p className="font-medium">{consent.consent_templates?.name || 'טופס לא ידוע'}</p>
+                                        <p className="text-sm text-muted-foreground">נחתם על ידי: {consent.full_name_signed || 'לא צוין'}</p>
+                                        <p className="text-xs text-muted-foreground">בתאריך: {format(new Date(consent.signed_at), "PPP HH:mm", { locale: he })}</p>
+                                        {consent.signature_image_url && (
+                                            <div className="mt-2">
+                                                <p className="text-xs text-muted-foreground mb-1">חתימה:</p>
+                                                <img src={consent.signature_image_url} alt="חתימת משתמש" className="w-full max-w-[200px] h-auto object-contain border rounded-md bg-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
         );
     };
