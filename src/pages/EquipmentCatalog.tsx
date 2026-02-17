@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryFilter } from "@/components/equipment/CategoryFilter"; // Import the new component
 
 interface Category {
   id: string;
@@ -90,36 +91,36 @@ const EquipmentCatalog = () => {
   });
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-        <h1 className="text-3xl font-bold">קטלוג ציוד</h1>
-        <div className="flex items-center gap-4">
-          <Select onValueChange={setSelectedCategory} defaultValue="all">
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="סינון לפי קטגוריה" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">כל הקטגוריות</SelectItem>
-              {categories?.map(category => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <CartSheet />
+    <div className="p-8 flex">
+      {/* Right Sidebar for Filters */}
+      <aside className="w-64 pr-8 border-l border-gray-200 pl-4"> {/* Added pl-4 for padding */}
+        <CategoryFilter 
+          categories={categories} 
+          selectedCategory={selectedCategory} 
+          onSelectCategory={setSelectedCategory} 
+        />
+      </aside>
+
+      {/* Main Content */}
+      <div className="flex-1 mr-8"> {/* Added mr-8 for spacing */}
+        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+          <h1 className="text-3xl font-bold">קטלוג ציוד</h1>
+          <div className="flex items-center gap-4">
+            {/* Removed the Select component as CategoryFilter now handles it */}
+            <CartSheet />
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredEquipment?.map((item) => (
-          <EquipmentCard key={item.id} item={item} />
-        ))}
-      </div>
-      {filteredEquipment?.length === 0 && (
-        <div className="text-center py-16 text-muted-foreground">
-            <p>לא נמצא ציוד בקטגוריה שנבחרה או שהציוד אינו זמין להשכרה.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredEquipment?.map((item) => (
+            <EquipmentCard key={item.id} item={item} />
+          ))}
         </div>
-      )}
+        {filteredEquipment?.length === 0 && (
+          <div className="text-center py-16 text-muted-foreground">
+              <p>לא נמצא ציוד בקטגוריה שנבחרה או שהציוד אינו זמין להשכרה.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
