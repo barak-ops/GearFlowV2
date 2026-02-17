@@ -58,7 +58,7 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
         <TableRow>
           <TableHead>שם התבנית</TableHead>
           <TableHead>סטטוס</TableHead>
-          <TableHead>טופס קבלה</TableHead> {/* New TableHead */}
+          <TableHead>טופס קבלה</TableHead>
           <TableHead>תוכן</TableHead>
           <TableHead>הערות</TableHead>
           <TableHead className="text-right">פעולות</TableHead>
@@ -78,7 +78,7 @@ export function ConsentTemplateTable({ templates }: ConsentTemplateTableProps) {
                     <Badge variant="secondary">אופציונלי</Badge>
                 )}
             </TableCell>
-            <TableCell> {/* New TableCell for is_receipt_form */}
+            <TableCell>
                 {template.is_receipt_form ? (
                     <Badge className="flex items-center gap-1 w-fit bg-blue-500 hover:bg-blue-600">
                         <ReceiptText className="h-3 w-3" />

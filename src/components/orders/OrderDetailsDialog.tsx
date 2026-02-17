@@ -590,7 +590,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </DialogHeader>
                 {isLoadingOrder || isLoadingConsent ? renderLoading() : orderError ? renderError(orderError) : consentError ? renderError(consentError) : order ? renderDetails(order, consent || null) : null}
                 <DialogFooter>
-                    {order?.status === 'approved' && allItemsReceived && isCustomerSigned && (
+                    {order?.status === 'approved' && order.order_items.length > 0 && order.order_items.every(item => receivedItems.has(item.item_id)) && !isCustomerSigned && (
                         <Button 
                             onClick={() => generateAndSignReceiptMutation.mutate("")} // Empty string for signature as it's already handled
                             disabled={generateAndSignReceiptMutation.isPending}
