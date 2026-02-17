@@ -43,7 +43,14 @@ interface EquipmentItemDetail {
 interface OrderItemDetail {
     item_id: string; // Added item_id
     equipment_items: EquipmentItemDetail | null;
-    order_item_receipts: { id: string; signature_image_url: string | null; received_at: string | null }[]; // Added receipts
+}
+
+interface OrderItemReceipt {
+    id: string;
+    order_id: string;
+    item_id: string;
+    signature_image_url: string | null;
+    received_at: string | null;
 }
 
 interface ConsentDetail {
@@ -118,8 +125,7 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     serial_number,
                     image_url,
                     categories ( name )
-                ),
-                order_item_receipts ( id, signature_image_url, received_at )
+                )
             ),
             consent_form_id,
             receipt_pdf_url
@@ -129,6 +135,16 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
 
     if (error) throw new Error(error.message);
     return data as OrderDetail;
+};
+
+const fetchOrderItemReceipts = async (orderId: string): Promise<OrderItemReceipt[]> => {
+    const { data, error } = await supabase
+        .from("order_item_receipts")
+        .select(`id, order_id, item_id, signature_image_url, received_at`)
+        .eq("order_id", orderId);
+
+    if (error) throw new Error(error.message);
+    return data as OrderItemReceipt[];
 };
 
 const fetchConsentDetails = async (consentId: string): Promise<ConsentDetail> => {
@@ -160,6 +176,12 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         enabled: isOpen,
     });
 
+    const { data: orderItemReceipts, isLoading: isLoadingOrderItemReceipts, error: orderItemReceiptsError, refetch: refetchOrderItemReceipts } = useQuery({
+        queryKey: ["order-item-receipts", orderId],
+        queryFn: () => fetchOrderItemReceipts(orderId),
+        enabled: isOpen,
+    });
+
     const { data: consent, isLoading: isLoadingConsent, error: consentError, refetch: refetchConsent } = useQuery({
         queryKey: ["consent-details", order?.consent_form_id],
         queryFn: () => fetchConsentDetails(order!.consent_form_id!),
@@ -169,12 +191,10 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
     const [receivedItems, setReceivedItems] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (order?.order_items) {
+        if (order?.order_items && orderItemReceipts) {
             const received = new Set<string>();
-            order.order_items.forEach(orderItem => {
-                if (orderItem.order_item_receipts && orderItem.order_item_receipts.length > 0) {
-                    received.add(orderItem.item_id);
-                }
+            orderItemReceipts.forEach(receipt => {
+                received.add(receipt.item_id);
             });
             setReceivedItems(received);
             // Check if a general receipt PDF exists and if all items are received
@@ -184,12 +204,13 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 setIsCustomerSigned(false);
             }
         }
-    }, [order]);
+    }, [order, orderItemReceipts]);
 
     const handleOpenChange = (open: boolean) => {
         setIsOpen(open);
         if (open) {
             refetchOrder();
+            refetchOrderItemReceipts();
             if (order?.consent_form_id) {
                 refetchConsent();
             }
@@ -219,6 +240,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["order-details", orderId] });
+            queryClient.invalidateQueries({ queryKey: ["order-item-receipts", orderId] });
             showSuccess("סטטוס קבלת הפריט עודכן.");
         },
         onError: (error) => {
@@ -354,7 +376,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const items = order.order_items.map(oi => ({
             ...oi.equipment_items,
             item_id: oi.item_id,
-            is_received: oi.order_item_receipts && oi.order_item_receipts.length > 0,
+            is_received: receivedItems.has(oi.item_id), // Use receivedItems state
         })).filter(item => item !== null) as (EquipmentItemDetail & { item_id: string; is_received: boolean })[];
         
         const allItemsReceived = items.length > 0 && items.every(item => receivedItems.has(item.item_id));
@@ -560,7 +582,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                         הזמנה מספר {orderId.substring(0, 8)}... של {userName}
                     </DialogDescription>
                 </DialogHeader>
-                {isLoadingOrder || isLoadingConsent ? renderLoading() : orderError ? renderError(orderError) : consentError ? renderError(consentError) : order ? renderDetails(order, consent || null) : null}
+                {isLoadingOrder || isLoadingOrderItemReceipts || isLoadingConsent ? renderLoading() : orderError ? renderError(orderError) : consentError ? renderError(consentError) : order ? renderDetails(order, consent || null) : null}
                 <DialogFooter>
                     {order?.status === 'approved' && allItemsReceived && isCustomerSigned && (
                         <Button 
