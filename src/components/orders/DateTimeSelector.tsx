@@ -133,7 +133,7 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                         {(checkoutDate && returnDate) ? <Clock className="h-6 w-6 text-green-600" /> : <CalendarIcon className="h-6 w-6" />}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start" dir="rtl">
+                <PopoverContent className="w-[320px] p-0" align="start" dir="rtl">
                     <div className="p-4 space-y-4">
                         <div className="flex justify-between items-center border-b pb-2">
                             <div className="flex gap-2">
@@ -161,21 +161,23 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                         </div>
 
                         {!showHours ? (
-                            <Calendar
-                                mode="single"
-                                selected={currentSelectedDate || undefined}
-                                onSelect={handleDateSelect}
-                                disabled={isDayDisabled}
-                                initialFocus
-                                locale={he}
-                                fromDate={today}
-                                toDate={maxDate}
-                                className="rounded-md border shadow-none"
-                                components={{
-                                    IconLeft: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-                                    IconRight: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-                                }}
-                            />
+                            <div className="calendar-container">
+                                <Calendar
+                                    mode="single"
+                                    selected={currentSelectedDate || undefined}
+                                    onSelect={handleDateSelect}
+                                    disabled={isDayDisabled}
+                                    initialFocus
+                                    locale={he}
+                                    fromDate={today}
+                                    toDate={maxDate}
+                                    className="rounded-md border shadow-none w-full"
+                                    components={{
+                                        IconLeft: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+                                        IconRight: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
+                                    }}
+                                />
+                            </div>
                         ) : (
                             <div className="space-y-4">
                                 <div className="text-center font-bold border-b pb-2">

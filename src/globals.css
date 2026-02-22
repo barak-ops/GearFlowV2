@@ -103,5 +103,30 @@
 /* Fix for Radix ScrollArea display:table issue with RTL */
 [data-radix-scroll-area-viewport] > div {
   display: block !important;
-  direction: rtl; /* Ensure content inside scroll area respects RTL */
+  direction: rtl;
+}
+
+/* Calendar RTL Fixes - Ensuring equal cell widths */
+.rdp-table {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.rdp-head_row, .rdp-row {
+  display: flex !important;
+  width: 100% !important;
+}
+
+.rdp-head_cell, .rdp-cell {
+  flex: 1 1 0% !important;
+  width: auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.rdp-button {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
 }
