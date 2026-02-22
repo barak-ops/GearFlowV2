@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/contexts/SessionContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, LogOut, Home, Package, ListOrdered, Users, Settings as SettingsIcon, BarChart, FileText, ListChecks, ScrollText } from 'lucide-react';
+import { Loader2, LogOut, Home, Package, ListOrdered, Users, Settings as SettingsIcon, BarChart, FileText, ListChecks, ScrollText, PlusCircle } from 'lucide-react';
 
 const headerThemes = [
   {
@@ -105,6 +105,10 @@ export const Header = () => {
           </>
         ) : (
           <>
+            <Link to="/new-order" className="flex items-center gap-1 hover:opacity-80 transition-opacity font-bold text-yellow-300">
+              <PlusCircle className="h-5 w-5" />
+              הזמנה חדשה
+            </Link>
             <Link to="/catalog" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
               <Package className="h-5 w-5" />
               קטלוג ציוד

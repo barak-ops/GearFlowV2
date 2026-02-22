@@ -22,7 +22,8 @@ import { HelmetProvider } from 'react-helmet-async';
 import Reports from "./pages/Reports";
 import ConsentFormTemplates from "./pages/ConsentFormTemplates";
 import ManagedListsPage from "./pages/ManagedListsPage";
-import AuditLogPage from "./pages/AuditLog"; // <-- New Import
+import AuditLogPage from "./pages/AuditLog";
+import NewOrder from "./pages/NewOrder"; // <-- New Import
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/catalog" element={<EquipmentCatalog />} />
                     <Route path="/my-orders" element={<MyOrders />} />
+                    <Route path="/new-order" element={<NewOrder />} /> {/* <-- New Route */}
                     
                     {/* Manager Routes */}
                     <Route element={<ManagerRoute />}>
@@ -54,7 +56,7 @@ const App = () => (
                       <Route path="/consent-templates" element={<ConsentFormTemplates />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/managed-lists" element={<ManagedListsPage />} />
-                      <Route path="/audit" element={<AuditLogPage />} /> {/* <-- New Route */}
+                      <Route path="/audit" element={<AuditLogPage />} />
                     </Route>
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
