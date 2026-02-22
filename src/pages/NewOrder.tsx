@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Package } from "lucide-react";
+import { Trash2, Package, ClipboardList } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
@@ -82,21 +82,15 @@ const NewOrder = () => {
             <h1 className="text-3xl font-bold mb-8">הזמנת ציוד</h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Left Column: Equipment Selector */}
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border">
-                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                            <Package className="h-5 w-5 text-primary" />
-                            בחירת ציוד
-                        </h2>
-                        <EquipmentSelector disabled={!isSelectionValid} />
-                    </div>
-                </div>
-
-                {/* Right Column: Form & Selection */}
-                <div className="space-y-6">
+                {/* Right Column: Form & Selection (Now on the right) */}
+                <div className="space-y-6 order-1 lg:order-2">
                     <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
-                        <RadioGroup value={orderType} onValueChange={(v: any) => setOrderType(v)} className="space-y-4">
+                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5 text-primary" />
+                            פרטי ההזמנה
+                        </h2>
+
+                        <RadioGroup value={orderType} onValueChange={(v: any) => { setOrderType(v); setDates({ checkout: null, return: null }); }} className="space-y-4">
                             <div className="flex items-center space-x-2 space-x-reverse border p-3 rounded-md">
                                 <RadioGroupItem value="regular" id="regular" />
                                 <Label htmlFor="regular" className="font-bold cursor-pointer flex-1">הזמנה רגילה</Label>
@@ -110,16 +104,20 @@ const NewOrder = () => {
                                     <RadioGroupItem value="recurring" id="recurring" />
                                     <Label htmlFor="recurring" className="font-bold cursor-pointer flex-1">הזמנה מחזורית</Label>
                                     {orderType === 'recurring' && (
-                                        <DateTimeSelector onSelectionComplete={handleSelectionComplete} isRecurring />
+                                        <DateTimeSelector 
+                                            onSelectionComplete={handleSelectionComplete} 
+                                            isRecurring 
+                                            duration={parseFloat(duration)}
+                                        />
                                     )}
                                 </div>
 
                                 {orderType === 'recurring' && (
                                     <div className="grid grid-cols-2 gap-4 pt-2 animate-in fade-in slide-in-from-top-2">
                                         <div className="space-y-2">
-                                            <Label>משך זמן</Label>
+                                            <Label className="text-xs">משך זמן</Label>
                                             <Select value={duration} onValueChange={setDuration}>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="h-8 text-xs">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -130,13 +128,20 @@ const NewOrder = () => {
                                             </Select>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label>מספר פעמים</Label>
-                                            <Input type="number" min={1} max={30} value={count} onChange={(e) => setCount(parseInt(e.target.value) || 1)} />
+                                            <Label className="text-xs">מספר פעמים</Label>
+                                            <Input 
+                                                type="number" 
+                                                min={1} 
+                                                max={30} 
+                                                value={count} 
+                                                onChange={(e) => setCount(parseInt(e.target.value) || 1)} 
+                                                className="h-8 text-xs"
+                                            />
                                         </div>
                                         <div className="space-y-2 col-span-2">
-                                            <Label>מרווח זמן</Label>
+                                            <Label className="text-xs">מרווח זמן</Label>
                                             <Select value={interval} onValueChange={(v: any) => setInterval(v)}>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="h-8 text-xs">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -152,30 +157,30 @@ const NewOrder = () => {
                         </RadioGroup>
 
                         <div className="space-y-2">
-                            <Label>הערות לבקשה</Label>
+                            <Label className="text-sm">הערות לבקשה</Label>
                             <Textarea 
                                 placeholder="הערות מיוחדות..." 
                                 value={notes} 
                                 onChange={(e) => setNotes(e.target.value)}
-                                className="min-h-[100px]"
+                                className="min-h-[80px] text-sm"
                             />
                         </div>
 
-                        <div className="pt-4">
-                            <h3 className="font-semibold mb-3">פריטים שנבחרו ({cart.length})</h3>
+                        <div className="pt-4 border-t">
+                            <h3 className="font-semibold mb-3 text-sm">פריטים שנבחרו ({cart.length})</h3>
                             <div className="space-y-2 max-h-48 overflow-y-auto">
                                 {cart.map(item => (
-                                    <div key={item.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-md text-sm">
+                                    <div key={item.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-md text-xs">
                                         <div className="flex flex-col">
                                             <span className="font-medium">{item.name}</span>
-                                            <span className="text-xs text-muted-foreground">{item.categories?.name}</span>
+                                            <span className="text-[10px] text-muted-foreground">{item.categories?.name}</span>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeFromCart(item.id)}>
-                                            <Trash2 className="h-4 w-4" />
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500" onClick={() => removeFromCart(item.id)}>
+                                            <Trash2 className="h-3 w-3" />
                                         </Button>
                                     </div>
                                 ))}
-                                {cart.length === 0 && <p className="text-xs text-muted-foreground text-center py-4">טרם נבחרו פריטים</p>}
+                                {cart.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-4">טרם נבחרו פריטים</p>}
                             </div>
                         </div>
 
@@ -187,6 +192,17 @@ const NewOrder = () => {
                         >
                             {createOrderMutation.isPending ? "שולח בקשה..." : "שלח בקשה לאישור"}
                         </Button>
+                    </div>
+                </div>
+
+                {/* Left Column: Equipment Selector (Now on the left) */}
+                <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border">
+                        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            <Package className="h-5 w-5 text-primary" />
+                            בחירת ציוד
+                        </h2>
+                        <EquipmentSelector disabled={!isSelectionValid} />
                     </div>
                 </div>
             </div>
