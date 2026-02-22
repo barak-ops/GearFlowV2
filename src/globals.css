@@ -106,27 +106,41 @@
   direction: rtl;
 }
 
-/* Calendar RTL Fixes - Ensuring equal cell widths */
+/* Calendar RTL Fixes - Ensuring equal cell widths using Grid */
 .rdp-table {
   width: 100% !important;
   max-width: 100% !important;
+  border-collapse: collapse !important;
 }
 
 .rdp-head_row, .rdp-row {
-  display: flex !important;
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
   width: 100% !important;
 }
 
 .rdp-head_cell, .rdp-cell {
-  flex: 1 1 0% !important;
-  width: auto !important;
-  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  width: 100% !important;
+  min-height: 40px !important;
+}
+
+.rdp-button {
+  width: 100% !important;
+  max-width: 40px !important;
+  aspect-ratio: 1 / 1 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
 }
 
-.rdp-button {
+.rdp-months {
   width: 100% !important;
-  aspect-ratio: 1 / 1 !important;
+}
+
+.rdp-month {
+  width: 100% !important;
 }
