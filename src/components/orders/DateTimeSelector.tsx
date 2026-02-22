@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import React, { useState, useEffect } from 'react';
+import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, X, Clock, ChevronRight, ChevronLeft } from "lucide-react";
@@ -23,16 +21,19 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
     const [checkoutDate, setCheckoutDate] = useState<Date | null>(null);
     const [returnDate, setReturnDate] = useState<Date | null>(null);
     const [showHours, setShowHours] = useState(false);
-    const calendarRef = useRef<FullCalendar>(null);
 
     const today = startOfToday();
+    const maxDate = addMonths(today, 6);
 
+    // Calculate return date for recurring orders based on business rules
     const calculateRecurringReturn = (checkout: Date, dur: number) => {
         let ret = addHours(checkout, dur);
         const retHour = ret.getHours();
 
+        // If return is after 3 PM (15:00)
         if (retHour >= 15) {
             ret.setDate(ret.getDate() + 1);
+            // Skip Friday (5) and Saturday (6)
             while (ret.getDay() === 5 || ret.getDay() === 6) {
                 ret.setDate(ret.getDate() + 1);
             }
@@ -41,6 +42,7 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
         return ret;
     };
 
+    // Update return date if duration changes in recurring mode
     useEffect(() => {
         if (isRecurring && checkoutDate) {
             const newReturn = calculateRecurringReturn(checkoutDate, duration);
@@ -49,27 +51,20 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
         }
     }, [duration, isRecurring]);
 
-    // Keyboard navigation
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!isOpen || !calendarRef.current) return;
-            const api = calendarRef.current.getApi();
-            if (e.key === 'ArrowLeft') api.prev();
-            if (e.key === 'ArrowRight') api.next();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen]);
-
-    const handleDateClick = (arg: { date: Date }) => {
-        const date = arg.date;
+    const isDayDisabled = (date: Date) => {
         const day = date.getDay();
+        const isWeekend = day === 5 || day === 6;
+        const isOutOfRange = isBefore(date, today) || isBefore(maxDate, date);
         
-        // Disable weekends and past dates
-        if (day === 5 || day === 6 || isBefore(date, today)) return;
+        if (mode === 'return' && checkoutDate) {
+            return isWeekend || isOutOfRange || isBefore(date, checkoutDate);
+        }
         
-        if (mode === 'return' && checkoutDate && isBefore(date, checkoutDate)) return;
+        return isWeekend || isOutOfRange;
+    };
 
+    const handleDateSelect = (date: Date | undefined) => {
+        if (!date) return;
         if (mode === 'checkout') {
             setCheckoutDate(date);
             setShowHours(true);
@@ -121,6 +116,8 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
     };
 
     const currentSelectedDate = mode === 'checkout' ? checkoutDate : returnDate;
+    
+    // Filter hours for today
     const availableHours = HOURS.filter(h => {
         if (currentSelectedDate && isToday(currentSelectedDate)) {
             return h > getHours(new Date());
@@ -136,7 +133,7 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                         {(checkoutDate && returnDate) ? <Clock className="h-6 w-6 text-green-600" /> : <CalendarIcon className="h-6 w-6" />}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start" dir="rtl">
+                <PopoverContent className="w-[320px] p-0" align="start" dir="rtl">
                     <div className="p-4 space-y-4">
                         <div className="flex justify-between items-center border-b pb-2">
                             <div className="flex gap-2">
@@ -164,30 +161,20 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                         </div>
 
                         {!showHours ? (
-                            <div className="fullcalendar-wrapper text-xs">
-                                <FullCalendar
-                                    ref={calendarRef}
-                                    plugins={[dayGridPlugin, interactionPlugin]}
-                                    initialView="dayGridMonth"
-                                    locale="he"
-                                    direction="rtl"
-                                    headerToolbar={{
-                                        left: 'title',
-                                        right: 'prev,next today'
-                                    }}
-                                    validRange={{
-                                        start: today
-                                    }}
-                                    dateClick={handleDateClick}
-                                    events={{
-                                        url: "https://www.hebcal.com/hebcal?cfg=fc&v=1&i=off&maj=on&min=on&nx=on&mf=on&ss=on&mod=on&lg=s&s=on",
-                                        cache: true
-                                    }}
-                                    height="auto"
-                                    dayCellClassNames={(arg) => {
-                                        const day = arg.date.getDay();
-                                        if (day === 5 || day === 6) return 'bg-gray-50 opacity-50 cursor-not-allowed';
-                                        return 'cursor-pointer hover:bg-blue-50';
+                            <div className="calendar-container">
+                                <Calendar
+                                    mode="single"
+                                    selected={currentSelectedDate || undefined}
+                                    onSelect={handleDateSelect}
+                                    disabled={isDayDisabled}
+                                    initialFocus
+                                    locale={he}
+                                    fromDate={today}
+                                    toDate={maxDate}
+                                    className="rounded-md border shadow-none w-full"
+                                    components={{
+                                        IconLeft: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+                                        IconRight: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
                                     }}
                                 />
                             </div>

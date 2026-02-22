@@ -106,41 +106,41 @@
   direction: rtl;
 }
 
-/* FullCalendar RTL & Styling Fixes */
-.fc {
-  direction: rtl;
-  text-align: right;
+/* Calendar RTL Fixes - Ensuring equal cell widths using Grid */
+.rdp-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse !important;
 }
 
-.fc .fc-toolbar {
-  flex-direction: row-reverse;
-  gap: 0.5rem;
+.rdp-head_row, .rdp-row {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  width: 100% !important;
 }
 
-.fc .fc-toolbar-title {
-  font-size: 1rem !important;
+.rdp-head_cell, .rdp-cell {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  width: 100% !important;
+  min-height: 40px !important;
 }
 
-.fc .fc-button {
-  padding: 0.25rem 0.5rem !important;
-  font-size: 0.75rem !important;
+.rdp-button {
+  width: 100% !important;
+  max-width: 40px !important;
+  aspect-ratio: 1 / 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
-.fc .fc-daygrid-day-number {
-  font-size: 0.75rem;
-  padding: 2px 4px !important;
+.rdp-months {
+  width: 100% !important;
 }
 
-.fc .fc-col-header-cell-cushion {
-  font-size: 0.75rem;
-  padding: 4px !important;
-}
-
-.fc-event {
-  font-size: 0.65rem !important;
-  cursor: default;
-}
-
-.fc-day-today {
-  background-color: hsl(var(--primary) / 0.05) !important;
+.rdp-month {
+  width: 100% !important;
 }
