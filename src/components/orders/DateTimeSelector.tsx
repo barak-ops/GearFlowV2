@@ -25,15 +25,11 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
     const today = startOfToday();
     const maxDate = addMonths(today, 6);
 
-    // Calculate return date for recurring orders based on business rules
     const calculateRecurringReturn = (checkout: Date, dur: number) => {
         let ret = addHours(checkout, dur);
         const retHour = ret.getHours();
-
-        // If return is after 3 PM (15:00)
         if (retHour >= 15) {
             ret.setDate(ret.getDate() + 1);
-            // Skip Friday (5) and Saturday (6)
             while (ret.getDay() === 5 || ret.getDay() === 6) {
                 ret.setDate(ret.getDate() + 1);
             }
@@ -42,7 +38,6 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
         return ret;
     };
 
-    // Update return date if duration changes in recurring mode
     useEffect(() => {
         if (isRecurring && checkoutDate) {
             const newReturn = calculateRecurringReturn(checkoutDate, duration);
@@ -55,11 +50,9 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
         const day = date.getDay();
         const isWeekend = day === 5 || day === 6;
         const isOutOfRange = isBefore(date, today) || isBefore(maxDate, date);
-        
         if (mode === 'return' && checkoutDate) {
             return isWeekend || isOutOfRange || isBefore(date, checkoutDate);
         }
-        
         return isWeekend || isOutOfRange;
     };
 
@@ -80,7 +73,6 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
             newCheckout.setHours(hour, 0, 0, 0);
             setCheckoutDate(newCheckout);
             setShowHours(false);
-
             if (isRecurring) {
                 const calculatedReturn = calculateRecurringReturn(newCheckout, duration);
                 setReturnDate(calculatedReturn);
@@ -92,14 +84,12 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
         } else if (mode === 'return' && returnDate) {
             const newReturn = new Date(returnDate);
             newReturn.setHours(hour, 0, 0, 0);
-            
             if (checkoutDate && isSameDay(newReturn, checkoutDate)) {
                 if (hour <= checkoutDate.getHours()) {
                     alert("שעת החזרה חייבת להיות לפחות שעה אחרי שעת ההשאלה");
                     return;
                 }
             }
-
             setReturnDate(newReturn);
             setShowHours(false);
             setIsOpen(false);
@@ -116,8 +106,6 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
     };
 
     const currentSelectedDate = mode === 'checkout' ? checkoutDate : returnDate;
-    
-    // Filter hours for today
     const availableHours = HOURS.filter(h => {
         if (currentSelectedDate && isToday(currentSelectedDate)) {
             return h > getHours(new Date());
@@ -161,7 +149,7 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                         </div>
 
                         {!showHours ? (
-                            <div className="calendar-container">
+                            <div className="relative min-h-[300px]">
                                 <Calendar
                                     mode="single"
                                     selected={currentSelectedDate || undefined}
@@ -171,11 +159,7 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                                     locale={he}
                                     fromDate={today}
                                     toDate={maxDate}
-                                    className="rounded-md border shadow-none w-full"
-                                    components={{
-                                        IconLeft: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
-                                        IconRight: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
-                                    }}
+                                    className="p-0"
                                 />
                             </div>
                         ) : (
@@ -198,9 +182,6 @@ export function DateTimeSelector({ onSelectionComplete, isRecurring = false, dur
                                         );
                                     })}
                                 </div>
-                                {availableHours.length === 0 && (
-                                    <p className="text-center text-xs text-red-500">אין שעות פנויות להיום</p>
-                                )}
                                 <Button variant="ghost" className="w-full text-xs" onClick={() => setShowHours(false)}>חזור ללוח שנה</Button>
                             </div>
                         )}
