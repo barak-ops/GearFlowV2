@@ -106,32 +106,25 @@
   direction: rtl;
 }
 
-/* Calendar RTL Fixes - Ensuring equal cell widths using Grid */
+/* Calendar RTL Fixes - Ensuring equal cell widths using fixed table layout */
 .rdp-table {
   width: 100% !important;
   max-width: 100% !important;
+  table-layout: fixed !important;
   border-collapse: collapse !important;
 }
 
-.rdp-head_row, .rdp-row {
-  display: grid !important;
-  grid-template-columns: repeat(7, 1fr) !important;
-  width: 100% !important;
-}
-
 .rdp-head_cell, .rdp-cell {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  width: 14.28% !important; /* Exactly 1/7 */
   padding: 0 !important;
-  width: 100% !important;
-  min-height: 40px !important;
+  text-align: center !important;
 }
 
 .rdp-button {
   width: 100% !important;
   max-width: 40px !important;
   aspect-ratio: 1 / 1 !important;
+  margin: 0 auto !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -139,8 +132,24 @@
 
 .rdp-months {
   width: 100% !important;
+  direction: rtl !important;
 }
 
 .rdp-month {
   width: 100% !important;
+}
+
+.rdp-nav {
+  display: flex !important;
+  justify-content: space-between !important;
+  position: absolute !important;
+  width: 100% !important;
+  top: 1rem !important;
+  left: 0 !important;
+  padding: 0 1rem !important;
+  pointer-events: none !important;
+}
+
+.rdp-nav_button {
+  pointer-events: auto !important;
 }
