@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FileText } from "lucide-react";
-import { OrderDetailsDialog } from "./OrderDetailsDialog"; // <-- New Import
+import { OrderDetailsDialog } from "./OrderDetailsDialog";
 
 interface Order {
   id: string;
@@ -30,17 +30,13 @@ interface Order {
   recurrence_interval: 'day' | 'week' | 'month' | null;
 }
 
-interface OrderTableProps {
-  orders: Order[] | undefined;
-}
-
 const statusTranslations: Record<Order['status'], string> = {
-    pending: 'ממתין לאישור',
-    approved: 'מאושר',
-    rejected: 'נדחה',
-    checked_out: 'מושכר',
-    returned: 'הוחזר',
-    cancelled: 'בוטל'
+    pending: 'Request',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    checked_out: 'Active',
+    returned: 'Ordered',
+    cancelled: 'Cancelled'
 };
 
 const statusColors: Record<Order['status'], string> = {
@@ -73,7 +69,7 @@ export function OrderTable({ orders }: OrderTableProps) {
       const action = variables.newStatus === 'approved' ? 'אושרה' : 'נדחתה';
       showSuccess(`ההזמנה ${action} בהצלחה.`);
       queryClient.invalidateQueries({ queryKey: ["all-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["my-orders"] }); // Also update student view
+      queryClient.invalidateQueries({ queryKey: ["my-orders"] });
     },
     onError: (error) => {
       showError(`שגיאה בעדכון ההזמנה: ${error.message}`);

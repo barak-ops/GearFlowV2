@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 const GENERATE_RECEIPT_PDF_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/generate-receipt-pdf";
 
 interface EquipmentItemDetail {
-    id: string; // Added id for tracking
+    id: string;
     name: string;
     serial_number: string | null;
     image_url: string | null;
@@ -41,7 +41,7 @@ interface EquipmentItemDetail {
 }
 
 interface OrderItemDetail {
-    item_id: string; // Added item_id
+    item_id: string;
     equipment_items: EquipmentItemDetail | null;
 }
 
@@ -58,7 +58,7 @@ interface ConsentTemplate {
     name: string;
     content: string;
     is_mandatory: boolean;
-    is_receipt_form: boolean; // Added is_receipt_form
+    is_receipt_form: boolean;
 }
 
 interface UserConsent {
@@ -82,8 +82,8 @@ interface OrderDetail {
     recurrence_interval: 'day' | 'week' | 'month' | null;
     order_items: OrderItemDetail[];
     consent_form_id: string | null;
-    receipt_pdf_url: string | null; // New field for the generated PDF
-    consent_templates: ConsentTemplate | null; // Joined consent template details
+    receipt_pdf_url: string | null;
+    consent_templates: ConsentTemplate | null;
 }
 
 interface OrderDetailsDialogProps {
@@ -92,12 +92,12 @@ interface OrderDetailsDialogProps {
 }
 
 const statusTranslations: Record<OrderDetail['status'], string> = {
-    pending: 'ממתין לאישור',
-    approved: 'מאושר',
-    rejected: 'נדחה',
-    checked_out: 'מושכר',
-    returned: 'הוחזר',
-    cancelled: 'בוטל'
+    pending: 'Request',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    checked_out: 'Active',
+    returned: 'Ordered',
+    cancelled: 'Cancelled'
 };
 
 const statusColors: Record<OrderDetail['status'], string> = {
@@ -163,7 +163,7 @@ const fetchRelevantConsentTemplates = async (): Promise<ConsentTemplate[]> => {
     const { data, error } = await supabase
         .from("consent_templates")
         .select(`id, name, content, is_mandatory, is_receipt_form`)
-        .or('is_mandatory.eq.true,is_receipt_form.eq.true'); // Fetch all mandatory or receipt forms
+        .or('is_mandatory.eq.true,is_receipt_form.eq.true');
 
     if (error) throw new Error(error.message);
     return data as ConsentTemplate[];
@@ -184,7 +184,7 @@ const fetchUserConsentsForTemplates = async (userId: string, templateIds: string
 export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isCustomerSigned, setIsCustomerSigned] = useState(false);
-    const [consentsReadStatus, setConsentsReadStatus] = useState<Record<string, boolean>>({}); // Track read status for each consent form
+    const [consentsReadStatus, setConsentsReadStatus] = useState<Record<string, boolean>>({});
     const signatureCanvasRef = useRef<SignatureCanvas | null>(null);
     const { user, session } = useSession();
     const queryClient = useQueryClient();
@@ -222,7 +222,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 received.add(receipt.item_id);
             });
             setReceivedItems(received);
-            // Check if a general receipt PDF exists and if all items are received
             if (order.receipt_pdf_url && received.size === order.order_items.length && order.order_items.length > 0) {
                 setIsCustomerSigned(true);
             } else {
@@ -250,10 +249,9 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
             refetchRelevantConsentTemplates();
             refetchUserConsents();
         } else {
-            // Reset state when closing
             setReceivedItems(new Set());
             setIsCustomerSigned(false);
-            setConsentsReadStatus({}); // Reset all consent checkboxes
+            setConsentsReadStatus({});
             signatureCanvasRef.current?.clear();
         }
     };
@@ -313,7 +311,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const filePath = `receipt_signatures/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-            .from('receipts') // Using the new 'receipts' bucket
+            .from('receipts')
             .upload(filePath, blob, {
                 cacheControl: '3600',
                 upsert: false,
@@ -355,28 +353,24 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 throw new Error("יש לסמן את כל הפריטים כ'התקבלו' לפני החתימה.");
             }
             
-            // Check if all mandatory/receipt consent forms have been read/consented
             const allRequiredConsentsRead = relevantConsentTemplates?.every(template => consentsReadStatus[template.id]) ?? true;
             if (!allRequiredConsentsRead) {
                 throw new Error("יש לאשר שקראת את כל טפסי ההסכמה הנדרשים לפני החתימה.");
             }
 
-            // 1. Upload the signature image for the receipt
             const receiptSignatureImageUrl = await uploadSignature(signatureDataUrl);
 
-            // 2. For each relevant consent form that the user hasn't consented to yet, save their consent
             for (const template of (relevantConsentTemplates || [])) {
                 const hasUserConsented = userConsents?.some(uc => uc.consent_template_id === template.id);
                 if (!hasUserConsented) {
                     await saveUserConsentMutation.mutateAsync({
-                        signatureImageUrl: receiptSignatureImageUrl, // Use the same signature for consent
-                        fullNameSigned: userName, // Assuming userName is the full name
+                        signatureImageUrl: receiptSignatureImageUrl,
+                        fullNameSigned: userName,
                         consentTemplateId: template.id,
                     });
                 }
             }
 
-            // 3. Generate the receipt PDF (via Edge Function)
             const generatePdfResponse = await fetch(GENERATE_RECEIPT_PDF_FUNCTION_URL, {
                 method: "POST",
                 headers: {
@@ -389,7 +383,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                     items: order.order_items.map(oi => oi.equipment_items?.name),
                     startDate: order.requested_start_date,
                     endDate: order.requested_end_date,
-                    signatureImageUrl: receiptSignatureImageUrl, // Pass signature to PDF generation
+                    signatureImageUrl: receiptSignatureImageUrl,
                 }),
             });
 
@@ -399,7 +393,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
             }
             const receiptPdfUrl = pdfResult.pdfUrl;
 
-            // 4. Update the order with the receipt PDF URL and change status to 'checked_out'
             const { error: updateOrderError } = await supabase
                 .from("orders")
                 .update({ 
@@ -450,22 +443,16 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const items = order.order_items.map(oi => ({
             ...oi.equipment_items,
             item_id: oi.item_id,
-            is_received: receivedItems.has(oi.item_id), // Use receivedItems state
+            is_received: receivedItems.has(oi.item_id),
         })).filter(item => item !== null) as (EquipmentItemDetail & { item_id: string; is_received: boolean })[];
         
         const allItemsReceived = items.length > 0 && items.every(item => receivedItems.has(item.item_id));
-        
-        // Filter relevant consent templates based on is_mandatory or is_receipt_form
         const activeConsentTemplates = relevantConsentTemplates?.filter(template => template.is_mandatory || template.is_receipt_form) || [];
-        
-        // Check if all active consent forms have been read/consented
         const allRequiredConsentsRead = activeConsentTemplates.every(template => consentsReadStatus[template.id]);
-
         const canSignReceipt = allItemsReceived && !isCustomerSigned && allRequiredConsentsRead;
 
         return (
             <div className="space-y-6" dir="rtl">
-                {/* General Info */}
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2">
                         <CalendarIcon className="h-4 w-4 text-muted-foreground" />
@@ -507,7 +494,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
 
                 <Separator />
 
-                {/* Equipment Items */}
                 <div>
                     <h4 className="font-semibold mb-3 flex items-center gap-2">
                         <Package className="h-5 w-5 text-primary" />
@@ -549,7 +535,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
 
                 <Separator />
 
-                {/* Customer Responsibility Area */}
                 <div>
                     <h4 className="font-semibold mb-3 flex items-center gap-2">
                         <ShieldAlert className="h-5 w-5 text-primary" />
@@ -570,7 +555,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                 לאחר אישור קבלת כל הפריטים, הלקוח נדרש לחתום דיגיטלית על מסמך הקבלה.
                             </p>
 
-                            {/* Display all active consent forms */}
                             {activeConsentTemplates.length > 0 && (
                                 <div className="space-y-4 mb-4">
                                     {activeConsentTemplates.map(template => {
@@ -586,7 +570,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                                         id={`consent-${template.id}`}
                                                         checked={consentsReadStatus[template.id]}
                                                         onCheckedChange={(checked) => setConsentsReadStatus(prev => ({ ...prev, [template.id]: !!checked }))}
-                                                        disabled={hasUserConsented} // Disable if already consented
+                                                        disabled={hasUserConsented}
                                                     />
                                                     <Label htmlFor={`consent-${template.id}`} className="font-semibold cursor-pointer">
                                                         אני מאשר/ת שקראתי והבנתי את תנאי טופס ההסכמה.
@@ -662,7 +646,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 </DialogHeader>
                 {isLoadingOrder || isLoadingOrderItemReceipts || isLoadingRelevantConsentTemplates || isLoadingUserConsents ? renderLoading() : orderError ? renderError(orderError) : relevantConsentTemplatesError ? renderError(relevantConsentTemplatesError) : userConsentsError ? renderError(userConsentsError) : order ? renderDetails(order) : null}
                 <DialogFooter>
-                    {/* The main action button is now inside renderDetails for conditional rendering */}
                 </DialogFooter>
             </DialogContent>
         </Dialog>
