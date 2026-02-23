@@ -82,7 +82,7 @@ const NewOrder = () => {
             <h1 className="text-3xl font-bold mb-8">הזמנת ציוד</h1>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Right Column: Form & Selection (Now on the right) */}
+                {/* Right Column: Form & Selection */}
                 <div className="space-y-6 order-1 lg:order-2">
                     <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -195,14 +195,18 @@ const NewOrder = () => {
                     </div>
                 </div>
 
-                {/* Left Column: Equipment Selector (Now on the left) */}
+                {/* Left Column: Equipment Selector */}
                 <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
                     <div className="bg-white p-6 rounded-xl shadow-sm border">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                             <Package className="h-5 w-5 text-primary" />
                             בחירת ציוד
                         </h2>
-                        <EquipmentSelector disabled={!isSelectionValid} />
+                        <EquipmentSelector 
+                            disabled={!isSelectionValid} 
+                            startDate={dates.checkout} 
+                            endDate={dates.return} 
+                        />
                     </div>
                 </div>
             </div>

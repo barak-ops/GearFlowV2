@@ -28,9 +28,43 @@ interface EquipmentItem {
 
 interface EquipmentSelectorProps {
     disabled?: boolean;
+    startDate?: Date | null;
+    endDate?: Date | null;
 }
 
-const fetchEquipment = async () => {
+const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null) => {
+  // If dates are provided, use the RPC to get only available items
+  if (startDate && endDate) {
+    const { data: availableItems, error: rpcError } = await supabase
+      .rpc('get_available_equipment', {
+        p_start_date: startDate.toISOString(),
+        p_end_date: endDate.toISOString()
+      });
+    
+    if (rpcError) throw rpcError;
+    
+    const ids = availableItems.map((item: any) => item.id);
+    if (ids.length === 0) return [];
+
+    // Fetch full details for the available IDs to include joins
+    const { data, error } = await supabase
+      .from("equipment_items")
+      .select(`
+        id,
+        name,
+        status_id,
+        image_url,
+        category_id,
+        categories ( name ),
+        equipment_statuses ( id, name, is_rentable )
+      `)
+      .in('id', ids);
+    
+    if (error) throw error;
+    return data as EquipmentItem[];
+  }
+
+  // Default fetch (all items)
   const { data, error } = await supabase
     .from("equipment_items")
     .select(`
@@ -52,10 +86,11 @@ const fetchCategories = async () => {
     return data as Category[];
 };
 
-export function EquipmentSelector({ disabled = false }: EquipmentSelectorProps) {
+export function EquipmentSelector({ disabled = false, startDate, endDate }: EquipmentSelectorProps) {
   const { data: equipment, isLoading: isLoadingEquipment } = useQuery({
-    queryKey: ["equipment"],
-    queryFn: fetchEquipment,
+    queryKey: ["equipment", startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: () => fetchEquipment(startDate, endDate),
+    enabled: !disabled || (!!startDate && !!endDate)
   });
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
@@ -98,7 +133,7 @@ export function EquipmentSelector({ disabled = false }: EquipmentSelectorProps) 
             ))}
           </div>
           {filteredEquipment?.length === 0 && (
-            <p className="text-center py-8 text-muted-foreground">אין ציוד זמין.</p>
+            <p className="text-center py-8 text-muted-foreground">אין ציוד זמין לתאריכים שנבחרו.</p>
           )}
         </div>
       </div>
