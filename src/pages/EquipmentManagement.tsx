@@ -32,6 +32,7 @@ interface EquipmentItem {
   category_id: string;
   image_url: string | null;
   status_id: string;
+  equipment_status: 'available' | 'faulted';
   warehouse_id: string | null;
   equipment_statuses: EquipmentStatus | null;
   categories: { name: string } | null;
@@ -66,6 +67,7 @@ const fetchEquipment = async () => {
       category_id,
       image_url,
       status_id,
+      equipment_status,
       barcode,
       sku,
       item_type_id,

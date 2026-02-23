@@ -18,6 +18,7 @@ import {
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
+import { Badge } from "@/components/ui/badge";
 
 interface EquipmentStatus {
     id: string;
@@ -29,6 +30,7 @@ interface EquipmentItem {
   id: string;
   name: string;
   status_id: string;
+  equipment_status: 'available' | 'faulted';
   warehouse_id: string | null;
   equipment_statuses: EquipmentStatus | null;
   categories: { name: string } | null;
@@ -114,7 +116,7 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
           <TableHead>תמונה</TableHead>
           <TableHead>שם הפריט</TableHead>
           <TableHead>קטגוריה</TableHead>
-          <TableHead>מחסן</TableHead>
+          <TableHead>מצב</TableHead>
           <TableHead>מק"ט</TableHead>
           <TableHead>סטטוס</TableHead>
           <TableHead className="text-right">פעולות</TableHead>
@@ -138,7 +140,11 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
                 </TableCell>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell>{item.categories?.name || 'ללא קטגוריה'}</TableCell>
-                <TableCell>{item.warehouses?.name || '-'}</TableCell>
+                <TableCell>
+                    <Badge variant={item.equipment_status === 'available' ? 'default' : 'destructive'}>
+                        {item.equipment_status === 'available' ? 'Available' : 'Faulted'}
+                    </Badge>
+                </TableCell>
                 <TableCell>{item.sku || '-'}</TableCell>
                 <TableCell>
                     <Select 

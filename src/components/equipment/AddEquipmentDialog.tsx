@@ -61,6 +61,7 @@ const equipmentSchema = z.object({
   ),
   invoice_number: z.string().optional(),
   status_id: z.string().uuid("יש לבחור סטטוס.").optional().or(z.literal('')),
+  equipment_status: z.enum(["available", "faulted"]).default("available"),
 });
 
 interface Category {
@@ -164,6 +165,7 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
       price: null,
       invoice_number: "",
       status_id: defaultStatusId,
+      equipment_status: "available",
     },
   });
 
@@ -341,6 +343,27 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
                           {status.name}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="equipment_status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>מצב הציוד</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="בחר מצב" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="available">Available</SelectItem>
+                      <SelectItem value="faulted">Faulted</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

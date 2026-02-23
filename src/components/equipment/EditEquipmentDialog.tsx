@@ -61,6 +61,7 @@ const equipmentSchema = z.object({
   ),
   invoice_number: z.string().optional(),
   status_id: z.string().uuid("יש לבחור סטטוס."),
+  equipment_status: z.enum(["available", "faulted"]),
 });
 
 interface Category {
@@ -87,6 +88,7 @@ interface EquipmentItem {
   category_id: string;
   image_url: string | null;
   status_id: string;
+  equipment_status: 'available' | 'faulted';
   warehouse_id: string | null;
   equipment_statuses: EquipmentStatus | null;
   categories: { name: string } | null;
@@ -185,6 +187,7 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
       price: item.price || null,
       invoice_number: item.invoice_number || "",
       status_id: item.status_id,
+      equipment_status: item.equipment_status || "available",
     },
   });
 
@@ -234,6 +237,7 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
             price: values.price,
             invoice_number: values.invoice_number,
             status_id: values.status_id,
+            equipment_status: values.equipment_status,
         })
         .eq("id", item.id);
       if (error) throw error;
@@ -369,6 +373,27 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
                           {status.name}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="equipment_status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>מצב הציוד</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="בחר מצב" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="available">Available</SelectItem>
+                      <SelectItem value="faulted">Faulted</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
