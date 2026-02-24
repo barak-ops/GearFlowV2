@@ -20,7 +20,8 @@ import {
   PlusCircle,
   User as UserIcon,
   ChevronDown,
-  ShieldCheck
+  ShieldCheck,
+  Clock
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -171,6 +172,12 @@ export const Header = () => {
                     <Link to="/consent-templates" className="flex items-center justify-between w-full">
                         <span>טפסי הסכמה</span>
                         <FileText className="h-4 w-4" />
+                    </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className={dropdownItemClasses}>
+                    <Link to="/operating-hours" className="flex items-center justify-between w-full">
+                        <span>שעות פתיחה</span>
+                        <Clock className="h-4 w-4" />
                     </Link>
                     </DropdownMenuItem>
                 </DropdownMenuContent>

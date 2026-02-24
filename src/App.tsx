@@ -23,7 +23,8 @@ import Reports from "./pages/Reports";
 import ConsentFormTemplates from "./pages/ConsentFormTemplates";
 import ManagedListsPage from "./pages/ManagedListsPage";
 import AuditLogPage from "./pages/AuditLog";
-import NewOrder from "./pages/NewOrder"; // <-- New Import
+import NewOrder from "./pages/NewOrder";
+import OperatingHoursPage from "./pages/OperatingHours"; // <-- New Import
 
 const queryClient = new QueryClient();
 
@@ -45,7 +46,7 @@ const App = () => (
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/catalog" element={<EquipmentCatalog />} />
                     <Route path="/my-orders" element={<MyOrders />} />
-                    <Route path="/new-order" element={<NewOrder />} /> {/* <-- New Route */}
+                    <Route path="/new-order" element={<NewOrder />} />
                     
                     {/* Manager and Storage Manager Routes */}
                     <Route element={<ManagerRoute />}>
@@ -55,6 +56,7 @@ const App = () => (
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/consent-templates" element={<ConsentFormTemplates />} />
                       <Route path="/audit" element={<AuditLogPage />} />
+                      <Route path="/operating-hours" element={<OperatingHoursPage />} /> {/* <-- New Route */}
                       {/* Only full managers can access settings and managed lists */}
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/managed-lists" element={<ManagedListsPage />} />
