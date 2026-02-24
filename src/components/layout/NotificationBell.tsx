@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ export const NotificationBell = () => {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
 
   const { data: notifications, isLoading } = useQuery({
     queryKey: ['notifications', user?.id],
@@ -42,7 +43,7 @@ export const NotificationBell = () => {
       return data as Notification[];
     },
     enabled: !!user,
-    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchInterval: 30000,
   });
 
   const markAsReadMutation = useMutation({
@@ -75,16 +76,22 @@ export const NotificationBell = () => {
   const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
 
   const handleNotificationClick = (notification: Notification) => {
+    // Mark as read if it's not already
     if (!notification.is_read) {
       markAsReadMutation.mutate(notification.id);
     }
+    
+    // Close the popover
+    setIsOpen(false);
+
+    // Navigate to the link if it exists
     if (notification.link) {
       navigate(notification.link);
     }
   };
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative hover:text-[#d9d983] transition-colors">
           <Bell className={`h-6 w-6 ${unreadCount > 0 ? 'text-red-500 fill-red-500' : ''}`} />
@@ -122,11 +129,11 @@ export const NotificationBell = () => {
               {notifications?.map((notification) => (
                 <button
                   key={notification.id}
-                  className={`p-4 text-right border-b last:border-0 hover:bg-gray-50 transition-colors flex flex-col gap-1 ${!notification.is_read ? 'bg-blue-50/30' : ''}`}
+                  className={`p-4 text-right border-b last:border-0 hover:bg-gray-100 transition-colors flex flex-col gap-1 w-full ${!notification.is_read ? 'bg-blue-50/40' : ''}`}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex justify-between items-start gap-2">
-                    <span className={`font-semibold text-sm ${!notification.is_read ? 'text-primary' : 'text-muted-foreground'}`}>
+                    <span className={`font-bold text-sm ${!notification.is_read ? 'text-primary' : 'text-muted-foreground'}`}>
                       {notification.title}
                     </span>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
