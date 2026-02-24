@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Edit, XCircle, CheckCircle } from "lucide-react";
 import { OperatingHoursDialog } from './OperatingHoursDialog';
-import { useProfile } from '@/hooks/useProfile'; // Import useProfile
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface OperatingHours {
@@ -17,6 +16,10 @@ interface OperatingHours {
   open_time: string | null;
   close_time: string | null;
   is_closed: boolean;
+}
+
+interface OperatingHoursCalendarProps {
+    warehouseId: string;
 }
 
 const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
@@ -30,14 +33,11 @@ const fetchOperatingHours = async (warehouseId: string) => {
   return data as OperatingHours[];
 };
 
-export function OperatingHoursCalendar() {
-  const { profile, loading: profileLoading } = useProfile();
-  const warehouseId = profile?.warehouse_id;
-
+export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarProps) {
   const { data: operatingHours, isLoading, error } = useQuery({
     queryKey: ["operating_hours", warehouseId],
-    queryFn: () => fetchOperatingHours(warehouseId!),
-    enabled: !!warehouseId && !profileLoading,
+    queryFn: () => fetchOperatingHours(warehouseId),
+    enabled: !!warehouseId,
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -51,10 +51,6 @@ export function OperatingHoursCalendar() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrentWeek, i));
 
   const handleOpenDialog = (dayOfWeek: number, isWeekly: boolean = false) => {
-    if (!warehouseId) {
-        alert("יש לשייך מחסן למשתמש כדי להגדיר שעות פתיחה.");
-        return;
-    }
     setSelectedDayOfWeek(dayOfWeek);
     setIsWeeklyDialog(isWeekly);
     if (isWeekly) {
@@ -73,26 +69,6 @@ export function OperatingHoursCalendar() {
     setInitialDialogHours(null);
     setIsWeeklyDialog(false);
   };
-
-  if (profileLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-16 w-16 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!warehouseId) {
-    return (
-      <Alert variant="destructive">
-        <XCircle className="h-4 w-4" />
-        <AlertTitle>שגיאה</AlertTitle>
-        <AlertDescription>
-          כדי להגדיר שעות פתיחה, המשתמש חייב להיות משויך למחסן. אנא פנה למנהל המערכת.
-        </AlertDescription>
-      </Alert>
-    );
-  }
 
   if (isLoading) {
     return (
@@ -151,7 +127,7 @@ export function OperatingHoursCalendar() {
         {/* Daily Columns */}
         {days.map((day, index) => {
           const dayOfWeek = index; // 0 for Sunday, 6 for Saturday
-          const hours = getHoursForDay(dayOfWeek);
+          const hours = operatingHours?.find(oh => oh.day_of_week === dayOfWeek); // Directly use operatingHours
           const isSaturday = dayOfWeek === 6;
 
           return (
