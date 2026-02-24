@@ -20,9 +20,10 @@ interface Order {
   is_recurring: boolean;
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
+  order_items?: { equipment_items: { warehouses: { name: string } | null } | null }[]; // Added for warehouse info
 }
 
-const fetchAllOrders = async (userWarehouseId: string | null) => {
+const fetchAllOrders = async (userWarehouseId: string | null, userRole: string | undefined) => {
   let query = supabase
     .from("orders")
     .select(`
@@ -35,10 +36,11 @@ const fetchAllOrders = async (userWarehouseId: string | null) => {
       is_recurring,
       recurrence_count,
       recurrence_interval,
-      profiles ( first_name, last_name )
+      profiles ( first_name, last_name ),
+      order_items ( equipment_items ( warehouses ( name ) ) )
     `);
   
-  if (userWarehouseId) {
+  if (userWarehouseId && userRole === 'storage_manager') {
     // For storage managers, filter orders by items in their warehouse
     // First, get all item_ids associated with the user's warehouse
     const { data: warehouseItems, error: itemsError } = await supabase
@@ -82,10 +84,11 @@ const fetchAllOrders = async (userWarehouseId: string | null) => {
 const OrderManagement = () => {
   const { profile, loading: profileLoading } = useProfile();
   const userWarehouseId = profile?.role === 'storage_manager' ? profile.warehouse_id : null;
+  const userRole = profile?.role;
 
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ["all-orders", userWarehouseId],
-    queryFn: () => fetchAllOrders(userWarehouseId),
+    queryKey: ["all-orders", userWarehouseId, userRole],
+    queryFn: () => fetchAllOrders(userWarehouseId, userRole),
     enabled: !profileLoading,
   });
 
@@ -101,12 +104,14 @@ const OrderManagement = () => {
     return <div>שגיאה בטעינת ההזמנות: {error.message}</div>;
   }
 
+  const showWarehouseColumn = userRole === 'manager';
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ניהול הזמנות</h1>
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         {orders && orders.length > 0 ? (
-          <OrderTable orders={orders} />
+          <OrderTable orders={orders} showWarehouseColumn={showWarehouseColumn} />
         ) : (
           <p className="text-center p-8 text-muted-foreground">לא נמצאו הזמנות לניהול.</p>
         )}

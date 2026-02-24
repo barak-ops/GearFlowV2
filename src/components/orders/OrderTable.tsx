@@ -28,6 +28,13 @@ interface Order {
   is_recurring: boolean;
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
+  // Added for warehouse information
+  order_items?: { equipment_items: { warehouses: { name: string } | null } | null }[];
+}
+
+interface OrderTableProps {
+    orders: Order[];
+    showWarehouseColumn?: boolean; // New prop to conditionally show the warehouse column
 }
 
 const statusTranslations: Record<Order['status'], string> = {
@@ -54,7 +61,7 @@ const recurrenceIntervalTranslations: Record<string, string> = {
     month: 'חודשי',
 };
 
-export function OrderTable({ orders }: OrderTableProps) {
+export function OrderTable({ orders, showWarehouseColumn = false }: OrderTableProps) {
   const queryClient = useQueryClient();
 
   const updateOrderMutation = useMutation({
@@ -85,6 +92,7 @@ export function OrderTable({ orders }: OrderTableProps) {
       <TableHeader>
         <TableRow>
           <TableHead>מזמין</TableHead>
+          {showWarehouseColumn && <TableHead>מחסן</TableHead>} {/* Conditionally render warehouse column */}
           <TableHead>תאריך התחלה</TableHead>
           <TableHead>תאריך סיום</TableHead>
           <TableHead>סטטוס</TableHead>
@@ -98,12 +106,21 @@ export function OrderTable({ orders }: OrderTableProps) {
           const userName = order.profiles 
             ? `${order.profiles.first_name || ''} ${order.profiles.last_name || ''}`.trim() 
             : 'משתמש לא ידוע';
+          
+          // Get unique warehouse names from order items
+          const warehousesInOrder = Array.from(new Set(
+            order.order_items
+              ?.map(oi => oi.equipment_items?.warehouses?.name)
+              .filter(name => name)
+          ));
+          const warehouseDisplay = warehousesInOrder.length > 0 ? warehousesInOrder.join(', ') : 'ללא מחסן';
 
           return (
             <TableRow key={order.id}>
               <TableCell className="font-medium">
                 {userName}
               </TableCell>
+              {showWarehouseColumn && <TableCell>{warehouseDisplay}</TableCell>} {/* Display warehouse name */}
               <TableCell>{format(new Date(order.requested_start_date), "PPP", { locale: he })}</TableCell>
               <TableCell>{format(new Date(order.requested_end_date), "PPP", { locale: he })}</TableCell>
               <TableCell>
