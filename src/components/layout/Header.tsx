@@ -139,7 +139,10 @@ export const Header = () => {
           </>
         ) : (
           <>
-            <Link to="/new-order" className="flex items-center gap-1 hover:opacity-80 transition-opacity font-bold text-yellow-300">
+            <Link 
+              to="/new-order" 
+              className="flex items-center gap-1 px-4 py-2 rounded-full bg-yellow-500 hover:bg-yellow-400 text-primary font-bold transition-colors shadow-sm"
+            >
               <PlusCircle className="h-5 w-5" />
               הזמנה חדשה
             </Link>
