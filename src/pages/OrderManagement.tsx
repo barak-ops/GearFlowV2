@@ -20,10 +20,13 @@ interface Order {
   is_recurring: boolean;
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
+  // Added for warehouse information
   order_items?: { equipment_items: { warehouses: { name: string } | null } | null }[]; // Added for warehouse info
 }
 
 const fetchAllOrders = async (userWarehouseId: string | null, userRole: string | undefined) => {
+  console.log("fetchAllOrders called with:", { userWarehouseId, userRole });
+
   let query = supabase
     .from("orders")
     .select(`
@@ -41,6 +44,7 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
     `);
   
   if (userWarehouseId && userRole === 'storage_manager') {
+    console.log("Filtering for storage_manager with warehouse_id:", userWarehouseId);
     // For storage managers, filter orders by items in their warehouse
     // First, get all item_ids associated with the user's warehouse
     const { data: warehouseItems, error: itemsError } = await supabase
@@ -48,12 +52,17 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
       .select('id')
       .eq('warehouse_id', userWarehouseId);
 
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      console.error("Error fetching warehouse items:", itemsError);
+      throw itemsError;
+    }
+    console.log("Warehouse items found:", warehouseItems);
 
     const itemIdsInWarehouse = warehouseItems.map(item => item.id);
 
     // If there are no items in the warehouse, return an empty array of orders
     if (itemIdsInWarehouse.length === 0) {
+      console.log("No items found in warehouse, returning empty orders array.");
       return [];
     }
 
@@ -63,21 +72,31 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
       .select('order_id')
       .in('item_id', itemIdsInWarehouse);
 
-    if (orderItemsError) throw orderItemsError;
+    if (orderItemsError) {
+      console.error("Error fetching order items:", orderItemsError);
+      throw orderItemsError;
+    }
+    console.log("Order items found for warehouse items:", orderItems);
 
     const orderIdsWithWarehouseItems = [...new Set(orderItems.map(oi => oi.order_id))]; // Use Set to get unique order IDs
 
     // If no orders contain items from this warehouse, return an empty array
     if (orderIdsWithWarehouseItems.length === 0) {
+      console.log("No orders found containing items from this warehouse, returning empty orders array.");
       return [];
     }
 
     // Finally, filter the main orders query by these order_ids
     query = query.in('id', orderIdsWithWarehouseItems);
+    console.log("Filtering main query by order IDs:", orderIdsWithWarehouseItems);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("Error fetching orders:", error);
+    throw new Error(error.message);
+  }
+  console.log("Fetched orders:", data);
   return data as Order[];
 };
 

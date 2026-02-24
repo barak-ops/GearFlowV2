@@ -58,10 +58,6 @@ serve(async (req) => {
     // Use service role to fetch all users from auth.users
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
-    const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers();
-    if (authError) throw authError;
-
-    // Fetch profiles with warehouse names, applying filter if storage_manager
     let profilesQuery = adminClient
       .from('profiles')
       .select('*, warehouses(name)');
@@ -74,6 +70,10 @@ serve(async (req) => {
     const { data: profiles, error: profilesError } = await profilesQuery;
     
     if (profilesError) throw profilesError;
+
+    // Fetch auth users to merge email
+    const { data: { users: authUsers }, error: authUsersError } = await adminClient.auth.admin.listUsers();
+    if (authUsersError) throw authUsersError;
 
     // Merge auth data (email) with profile data
     const mergedUsers = profiles.map(p => {
@@ -92,8 +92,8 @@ serve(async (req) => {
   } catch (error) {
     console.error("[get-users] Unexpected error", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      ,status: 400,
     });
   }
 })
