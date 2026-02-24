@@ -83,7 +83,7 @@ const NewOrder = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Right Column: Form & Selection */}
-                <div className="space-y-6 order-1 lg:order-2">
+                <div className="space-y-6">
                     <div className="bg-white p-6 rounded-xl shadow-sm border space-y-6">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                             <ClipboardList className="h-5 w-5 text-primary" />
@@ -145,8 +145,8 @@ const NewOrder = () => {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="day">יומי</SelectItem>
-                                                    <SelectItem value="week">שבועי</SelectItem>
+                                                    <SelectItem value="day">יום</SelectItem>
+                                                    <SelectItem value="week">שבוע</SelectItem>
                                                     <SelectItem value="month">חודשי</SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -196,7 +196,7 @@ const NewOrder = () => {
                 </div>
 
                 {/* Left Column: Equipment Selector */}
-                <div className="lg:col-span-2 space-y-4 order-2 lg:order-1">
+                <div className="lg:col-span-2 space-y-4">
                     <div className="bg-white p-6 rounded-xl shadow-sm border">
                         <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                             <Package className="h-5 w-5 text-primary" />
