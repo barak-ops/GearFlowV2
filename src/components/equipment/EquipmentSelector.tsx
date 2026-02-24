@@ -24,15 +24,17 @@ interface EquipmentItem {
   categories: { name: string } | null;
   image_url: string | null;
   category_id: string;
+  warehouse_id: string; // Ensure warehouse_id is always present
 }
 
 interface EquipmentSelectorProps {
     disabled?: boolean;
     startDate?: Date | null;
     endDate?: Date | null;
+    userWarehouseId?: string | null; // New prop for user's warehouse ID
 }
 
-const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null) => {
+const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null, userWarehouseId?: string | null) => {
   // If dates are provided, use the RPC to get only available items
   if (startDate && endDate) {
     const { data: availableItems, error: rpcError } = await supabase
@@ -47,7 +49,7 @@ const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null) =>
     if (ids.length === 0) return [];
 
     // Fetch full details for the available IDs to include joins
-    const { data, error } = await supabase
+    let query = supabase
       .from("equipment_items")
       .select(`
         id,
@@ -55,17 +57,24 @@ const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null) =>
         status_id,
         image_url,
         category_id,
+        warehouse_id,
         categories ( name ),
         equipment_statuses ( id, name, is_rentable )
       `)
       .in('id', ids);
+    
+    if (userWarehouseId) {
+        query = query.eq('warehouse_id', userWarehouseId);
+    }
+
+    const { data, error } = await query;
     
     if (error) throw error;
     return data as EquipmentItem[];
   }
 
   // Default fetch (all items)
-  const { data, error } = await supabase
+  let query = supabase
     .from("equipment_items")
     .select(`
       id,
@@ -73,9 +82,16 @@ const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null) =>
       status_id,
       image_url,
       category_id,
+      warehouse_id,
       categories ( name ),
       equipment_statuses ( id, name, is_rentable )
     `);
+  
+  if (userWarehouseId) {
+      query = query.eq('warehouse_id', userWarehouseId);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data as EquipmentItem[];
 };
@@ -86,10 +102,10 @@ const fetchCategories = async () => {
     return data as Category[];
 };
 
-export function EquipmentSelector({ disabled = false, startDate, endDate }: EquipmentSelectorProps) {
+export function EquipmentSelector({ disabled = false, startDate, endDate, userWarehouseId }: EquipmentSelectorProps) {
   const { data: equipment, isLoading: isLoadingEquipment } = useQuery({
-    queryKey: ["equipment", startDate?.toISOString(), endDate?.toISOString()],
-    queryFn: () => fetchEquipment(startDate, endDate),
+    queryKey: ["equipment", startDate?.toISOString(), endDate?.toISOString(), userWarehouseId],
+    queryFn: () => fetchEquipment(startDate, endDate, userWarehouseId),
     enabled: !disabled || (!!startDate && !!endDate)
   });
 
@@ -104,6 +120,14 @@ export function EquipmentSelector({ disabled = false, startDate, endDate }: Equi
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (equipment?.length === 0 && (startDate && endDate)) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p>אין ציוד זמין לתאריכים שנבחרו במחסן שלך.</p>
       </div>
     );
   }
@@ -133,7 +157,7 @@ export function EquipmentSelector({ disabled = false, startDate, endDate }: Equi
             ))}
           </div>
           {filteredEquipment?.length === 0 && (
-            <p className="text-center py-8 text-muted-foreground">אין ציוד זמין לתאריכים שנבחרו.</p>
+            <p className="text-center py-8 text-muted-foreground">אין ציוד זמין במחסן שלך.</p>
           )}
         </div>
       </div>

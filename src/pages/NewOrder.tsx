@@ -13,12 +13,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { useNavigate } from "react-router-dom";
+import { useProfile } from '@/hooks/useProfile'; // Import useProfile
 
 const CREATE_RECURRING_ORDERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-recurring-orders";
 
 const NewOrder = () => {
     const { cart, removeFromCart, clearCart } = useCart();
     const { session, user } = useSession();
+    const { profile, loading: profileLoading } = useProfile(); // Get profile
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
@@ -32,6 +34,7 @@ const NewOrder = () => {
     const [interval, setInterval] = useState<'day' | 'week' | 'month'>('week');
 
     const isSelectionValid = dates.checkout && dates.return;
+    const userWarehouseId = profile?.role === 'student' ? profile.warehouse_id : null;
 
     const createOrderMutation = useMutation({
         mutationFn: async () => {
@@ -76,6 +79,14 @@ const NewOrder = () => {
     const handleSelectionComplete = (checkout: Date | null, returnDate: Date | null) => {
         setDates({ checkout, return: returnDate });
     };
+
+    if (profileLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="h-16 w-16 animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-8 max-w-7xl mx-auto" dir="rtl">
@@ -206,6 +217,7 @@ const NewOrder = () => {
                             disabled={!isSelectionValid} 
                             startDate={dates.checkout} 
                             endDate={dates.return} 
+                            userWarehouseId={userWarehouseId} // Pass userWarehouseId here
                         />
                     </div>
                 </div>
