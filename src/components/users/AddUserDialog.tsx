@@ -32,6 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { useState } from "react";
 import { useSession } from "@/contexts/SessionContext";
+import { Profile } from "@/hooks/useProfile"; // Import Profile type
 
 const CREATE_USER_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/create-user";
 
@@ -40,6 +41,7 @@ const userSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים."),
+  role: z.enum(['student', 'manager', 'storage_manager']), // Added 'storage_manager'
   warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
 
@@ -52,7 +54,16 @@ const fetchWarehouses = async () => {
 export function AddUserDialog() {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { session } = useSession();
+  const { session, user } = useSession();
+  const { data: currentUserProfile } = useQuery<Profile>({
+    queryKey: ['profile', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', user!.id).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
 
   const { data: warehouses } = useQuery({
     queryKey: ["warehouses"],
@@ -66,6 +77,7 @@ export function AddUserDialog() {
       last_name: "",
       email: "",
       password: "",
+      role: "student", // Default role
       warehouse_id: "",
     },
   });
@@ -80,7 +92,10 @@ export function AddUserDialog() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
+        }),
       });
 
       const result = await response.json();
@@ -105,6 +120,8 @@ export function AddUserDialog() {
     mutation.mutate(values);
   }
 
+  const isManager = currentUserProfile?.role === 'manager';
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -114,7 +131,7 @@ export function AddUserDialog() {
         <DialogHeader>
           <DialogTitle>הוספת משתמש חדש</DialogTitle>
           <DialogDescription>
-            המשתמש ייווצר עם סיסמה זמנית ויקבל תפקיד 'סטודנט' כברירת מחדל.
+            המשתמש ייווצר עם סיסמה זמנית.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -171,31 +188,57 @@ export function AddUserDialog() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="warehouse_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>שיוך למחסן</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="בחר מחסן (אופציונלי)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">ללא מחסן</SelectItem>
-                      {warehouses?.map((warehouse) => (
-                        <SelectItem key={warehouse.id} value={warehouse.id}>
-                          {warehouse.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isManager && ( // Only managers can set roles and warehouses
+              <>
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>תפקיד</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="בחר תפקיד" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="student">סטודנט</SelectItem>
+                          <SelectItem value="manager">מנהל</SelectItem>
+                          <SelectItem value="storage_manager">מנהל מחסן</SelectItem> {/* New role */}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="warehouse_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>שיוך למחסן</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="בחר מחסן (אופציונלי)" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">ללא מחסן</SelectItem>
+                          {warehouses?.map((warehouse) => (
+                            <SelectItem key={warehouse.id} value={warehouse.id}>
+                              {warehouse.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "יוצר משתמש..." : "צור משתמש"}

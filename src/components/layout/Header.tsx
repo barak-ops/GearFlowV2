@@ -89,7 +89,8 @@ export const Header = () => {
   }
 
   const isManager = profile?.role === 'manager';
-  const baseSystemName = isManager 
+  const isStorageManager = profile?.role === 'storage_manager';
+  const baseSystemName = (isManager || isStorageManager)
     ? (customTitle || "מערכת ניהול ציוד") 
     : "מערכת הזמנת ציוד";
   
@@ -110,7 +111,7 @@ export const Header = () => {
         </Link>
       </div>
       <nav className="flex items-center gap-4">
-        {isManager ? (
+        {(isManager || isStorageManager) ? (
           <>
             <Link to="/equipment" className={`flex items-center gap-1 ${hoverClasses}`}>
               <Package className="h-5 w-5" />
@@ -120,50 +121,56 @@ export const Header = () => {
               <ListOrdered className="h-5 w-5" />
               ניהול הזמנות
             </Link>
-            <Link to="/reports" className={`flex items-center gap-1 ${hoverClasses}`}>
-              <BarChart className="h-5 w-5" />
-              דוחות
-            </Link>
-            <Link to="/audit" className={`flex items-center gap-1 ${hoverClasses}`}>
-              <ScrollText className="h-5 w-5" />
-              יומן ביקורת
-            </Link>
+            {isManager && ( // Only managers can see reports and audit logs
+              <>
+                <Link to="/reports" className={`flex items-center gap-1 ${hoverClasses}`}>
+                  <BarChart className="h-5 w-5" />
+                  דוחות
+                </Link>
+                <Link to="/audit" className={`flex items-center gap-1 ${hoverClasses}`}>
+                  <ScrollText className="h-5 w-5" />
+                  יומן ביקורת
+                </Link>
+              </>
+            )}
             
-            <DropdownMenu dir="rtl">
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className={`flex items-center gap-1 text-current p-2 h-auto font-normal ${hoverClasses}`}>
-                  <ShieldCheck className="h-5 w-5" />
-                  ניהול המערכת
-                  <ChevronDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem asChild className={dropdownItemClasses}>
-                  <Link to="/settings" className="flex items-center justify-between w-full">
-                    <span>הגדרות</span>
-                    <SettingsIcon className="h-4 w-4" />
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className={dropdownItemClasses}>
-                  <Link to="/users" className="flex items-center justify-between w-full">
-                    <span>ניהול משתמשים</span>
-                    <Users className="h-4 w-4" />
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className={dropdownItemClasses}>
-                  <Link to="/managed-lists" className="flex items-center justify-between w-full">
-                    <span>רשימות מערכת</span>
-                    <ListChecks className="h-4 w-4" />
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className={dropdownItemClasses}>
-                  <Link to="/consent-templates" className="flex items-center justify-between w-full">
-                    <span>טפסי הסכמה</span>
-                    <FileText className="h-4 w-4" />
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {isManager && ( // Only managers can access system management dropdown
+              <DropdownMenu dir="rtl">
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className={`flex items-center gap-1 text-current p-2 h-auto font-normal ${hoverClasses}`}>
+                    <ShieldCheck className="h-5 w-5" />
+                    ניהול המערכת
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem asChild className={dropdownItemClasses}>
+                    <Link to="/settings" className="flex items-center justify-between w-full">
+                      <span>הגדרות</span>
+                      <SettingsIcon className="h-4 w-4" />
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className={dropdownItemClasses}>
+                    <Link to="/users" className="flex items-center justify-between w-full">
+                      <span>ניהול משתמשים</span>
+                      <Users className="h-4 w-4" />
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className={dropdownItemClasses}>
+                    <Link to="/managed-lists" className="flex items-center justify-between w-full">
+                      <span>רשימות מערכת</span>
+                      <ListChecks className="h-4 w-4" />
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className={dropdownItemClasses}>
+                    <Link to="/consent-templates" className="flex items-center justify-between w-full">
+                      <span>טפסי הסכמה</span>
+                      <FileText className="h-4 w-4" />
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </>
         ) : (
           <>

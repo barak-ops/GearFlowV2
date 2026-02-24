@@ -19,6 +19,7 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Badge } from "@/components/ui/badge";
+import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 interface EquipmentStatus {
     id: string;
@@ -87,6 +88,7 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
     queryFn: fetchAllStatuses,
     staleTime: Infinity,
   });
+  const { profile } = useProfile(); // Get current user profile
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ itemId, newStatusId }: { itemId: string, newStatusId: string }) => {
@@ -109,6 +111,16 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
     updateStatusMutation.mutate({ itemId, newStatusId });
   };
 
+  const isStorageManager = profile?.role === 'storage_manager';
+  const currentUserWarehouseId = profile?.warehouse_id;
+
+  const filteredEquipment = equipment?.filter(item => {
+    if (isStorageManager && currentUserWarehouseId) {
+      return item.warehouse_id === currentUserWarehouseId;
+    }
+    return true; // Managers see all, students don't see this page
+  });
+
   return (
     <Table>
       <TableHeader>
@@ -123,7 +135,7 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {equipment?.map((item) => {
+        {filteredEquipment?.map((item) => {
             const currentStatusName = item.equipment_statuses?.name || 'לא ידוע';
             const currentStatusColor = getStatusColor(currentStatusName);
 
