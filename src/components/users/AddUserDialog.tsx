@@ -72,9 +72,14 @@ export function AddUserDialog() {
     },
   });
 
+  const selectedRole = form.watch('role');
+
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof userSchema>) => {
       if (!session) throw new Error("User not authenticated.");
+
+      // Determine the warehouse_id to save: only save if role is storage_manager or student
+      const warehouseIdToSave = (values.role === 'storage_manager' || values.role === 'student') && values.warehouse_id !== "" ? values.warehouse_id : null;
 
       const response = await fetch(CREATE_USER_FUNCTION_URL, {
         method: "POST",
@@ -84,7 +89,7 @@ export function AddUserDialog() {
         },
         body: JSON.stringify({
             ...values,
-            warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
+            warehouse_id: warehouseIdToSave, // Use the determined warehouse_id
         }),
       });
 
@@ -198,7 +203,7 @@ export function AddUserDialog() {
                 </FormItem>
               )}
             />
-            {form.watch('role') === 'storage_manager' && (
+            {(selectedRole === 'storage_manager' || selectedRole === 'student') && (
                 <FormField
                 control={form.control}
                 name="warehouse_id"
@@ -212,6 +217,7 @@ export function AddUserDialog() {
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                        <SelectItem value="">ללא מחסן</SelectItem> {/* Option for no warehouse */}
                         {warehouses?.map((warehouse) => (
                             <SelectItem key={warehouse.id} value={warehouse.id}>
                             {warehouse.name}
