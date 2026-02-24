@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/contexts/SessionContext';
@@ -59,6 +59,19 @@ export const NotificationBell = () => {
     },
   });
 
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
+    },
+  });
+
   const markAllAsReadMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
@@ -76,18 +89,18 @@ export const NotificationBell = () => {
   const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
 
   const handleNotificationClick = (notification: Notification) => {
-    // Mark as read if it's not already
     if (!notification.is_read) {
       markAsReadMutation.mutate(notification.id);
     }
-    
-    // Close the popover
     setIsOpen(false);
-
-    // Navigate to the link if it exists
     if (notification.link) {
       navigate(notification.link);
     }
+  };
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent triggering the notification click
+    deleteNotificationMutation.mutate(id);
   };
 
   return (
@@ -127,23 +140,33 @@ export const NotificationBell = () => {
           ) : (
             <div className="flex flex-col">
               {notifications?.map((notification) => (
-                <button
+                <div
                   key={notification.id}
-                  className={`p-4 text-right border-b last:border-0 hover:bg-gray-100 transition-colors flex flex-col gap-1 w-full ${!notification.is_read ? 'bg-blue-50/40' : ''}`}
+                  className={`group relative p-4 text-right border-b last:border-0 hover:bg-gray-100 transition-colors flex flex-col gap-1 w-full cursor-pointer ${!notification.is_read ? 'bg-blue-50/40' : ''}`}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex justify-between items-start gap-2">
                     <span className={`font-bold text-sm ${!notification.is_read ? 'text-primary' : 'text-muted-foreground'}`}>
                       {notification.title}
                     </span>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: he })}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: he })}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        onClick={(e) => handleDelete(e, notification.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {notification.message}
                   </p>
-                </button>
+                </div>
               ))}
             </div>
           )}
