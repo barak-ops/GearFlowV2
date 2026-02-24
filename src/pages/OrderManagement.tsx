@@ -40,55 +40,18 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
       recurrence_count,
       recurrence_interval,
       profiles ( first_name, last_name ),
-      order_items ( equipment_items ( warehouses ( name ) ) )
+      order_items ( equipment_items ( id, warehouses ( name, id ) ) )
     `);
   
   if (userWarehouseId && userRole === 'storage_manager') {
     console.log("Filtering for storage_manager with warehouse_id:", userWarehouseId);
     // For storage managers, filter orders by items in their warehouse
-    // First, get all item_ids associated with the user's warehouse
-    const { data: warehouseItems, error: itemsError } = await supabase
-      .from('equipment_items')
-      .select('id')
-      .eq('warehouse_id', userWarehouseId);
-
-    if (itemsError) {
-      console.error("Error fetching warehouse items:", itemsError);
-      throw itemsError;
-    }
-    console.log("Warehouse items found:", warehouseItems);
-
-    const itemIdsInWarehouse = warehouseItems.map(item => item.id);
-
-    // If there are no items in the warehouse, return an empty array of orders
-    if (itemIdsInWarehouse.length === 0) {
-      console.log("No items found in warehouse, returning empty orders array.");
-      return [];
-    }
-
-    // Then, get all order_ids that contain any of these items
-    const { data: orderItems, error: orderItemsError } = await supabase
-      .from('order_items')
-      .select('order_id')
-      .in('item_id', itemIdsInWarehouse);
-
-    if (orderItemsError) {
-      console.error("Error fetching order items:", orderItemsError);
-      throw orderItemsError;
-    }
-    console.log("Order items found for warehouse items:", orderItems);
-
-    const orderIdsWithWarehouseItems = [...new Set(orderItems.map(oi => oi.order_id))]; // Use Set to get unique order IDs
-
-    // If no orders contain items from this warehouse, return an empty array
-    if (orderIdsWithWarehouseItems.length === 0) {
-      console.log("No orders found containing items from this warehouse, returning empty orders array.");
-      return [];
-    }
-
-    // Finally, filter the main orders query by these order_ids
-    query = query.in('id', orderIdsWithWarehouseItems);
-    console.log("Filtering main query by order IDs:", orderIdsWithWarehouseItems);
+    // We need to fetch all orders, then filter them client-side based on the warehouse_id of their items.
+    // Supabase RLS should ideally handle this, but for now, we'll do it here.
+    // The RLS policy for 'orders' table already checks for manager role,
+    // but we need to ensure storage managers only see orders with items from their warehouse.
+    // This means we need to fetch all orders that the user is allowed to see (via RLS)
+    // and then filter them further if the user is a storage manager.
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
@@ -97,6 +60,16 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
     throw new Error(error.message);
   }
   console.log("Fetched orders:", data);
+
+  // Client-side filtering for storage managers
+  if (userWarehouseId && userRole === 'storage_manager') {
+    return (data as Order[]).filter(order => 
+      order.order_items?.some(orderItem => 
+        orderItem.equipment_items?.warehouses?.id === userWarehouseId
+      )
+    );
+  }
+
   return data as Order[];
 };
 
