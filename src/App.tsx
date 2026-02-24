@@ -47,16 +47,17 @@ const App = () => (
                     <Route path="/my-orders" element={<MyOrders />} />
                     <Route path="/new-order" element={<NewOrder />} /> {/* <-- New Route */}
                     
-                    {/* Manager Routes */}
+                    {/* Manager and Storage Manager Routes */}
                     <Route element={<ManagerRoute />}>
                       <Route path="/equipment" element={<EquipmentManagement />} />
                       <Route path="/orders" element={<OrderManagement />} />
                       <Route path="/users" element={<UserManagement />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/consent-templates" element={<ConsentFormTemplates />} />
+                      <Route path="/audit" element={<AuditLogPage />} />
+                      {/* Only full managers can access settings and managed lists */}
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/managed-lists" element={<ManagedListsPage />} />
-                      <Route path="/audit" element={<AuditLogPage />} />
                     </Route>
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
