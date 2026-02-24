@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { useProfile } from '@/hooks/useProfile'; // Import useProfile
 
 interface EquipmentStatus {
     id: string;
@@ -14,6 +15,7 @@ interface EquipmentItem {
   categories: { name: string } | null;
   image_url: string | null;
   category_id: string;
+  warehouse_id: string | null; // Added warehouse_id
 }
 
 interface CartContextType {
@@ -36,10 +38,12 @@ export const useCart = () => {
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<EquipmentItem[]>([]);
+  const { profile } = useProfile(); // Get the current user's profile
 
   const addToCart = (item: EquipmentItem) => {
     // Only add if the item is rentable and not already in the cart
     const isRentable = item.equipment_statuses?.is_rentable ?? false;
+    const userWarehouseId = profile?.role === 'student' ? profile.warehouse_id : null;
 
     setCart((prevCart) => {
       if (prevCart.find(cartItem => cartItem.id === item.id)) {
@@ -47,6 +51,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
       if (!isRentable) {
         return prevCart; // Item not rentable
+      }
+      // If the user is a student and has a warehouse_id, ensure the item belongs to that warehouse
+      if (userWarehouseId && item.warehouse_id !== userWarehouseId) {
+        return prevCart; // Item does not belong to the student's warehouse
       }
       return [...prevCart, item];
     });

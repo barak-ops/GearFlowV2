@@ -67,7 +67,9 @@ const fetchCategories = async () => {
 
 const EquipmentCatalog = () => {
   const { profile, loading: profileLoading } = useProfile();
-  const userWarehouseId = profile?.role === 'storage_manager' ? profile.warehouse_id : null;
+  // Determine the warehouse_id to filter by. If the user is a student, use their assigned warehouse_id.
+  // If the user is a manager or storage_manager, they should see all equipment (or their assigned warehouse if storage_manager).
+  const userWarehouseId = profile?.role === 'student' ? profile.warehouse_id : null;
 
   const { data: equipment, isLoading: isLoadingEquipment, error: equipmentError } = useQuery({
     queryKey: ["equipment", userWarehouseId],
