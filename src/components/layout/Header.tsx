@@ -4,7 +4,30 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/contexts/SessionContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, LogOut, Home, Package, ListOrdered, Users, Settings as SettingsIcon, BarChart, FileText, ListChecks, ScrollText, PlusCircle } from 'lucide-react';
+import { 
+  Loader2, 
+  LogOut, 
+  Home, 
+  Package, 
+  ListOrdered, 
+  Users, 
+  Settings as SettingsIcon, 
+  BarChart, 
+  FileText, 
+  ListChecks, 
+  ScrollText, 
+  PlusCircle,
+  User as UserIcon,
+  ChevronDown
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const headerThemes = [
   {
@@ -67,6 +90,8 @@ export const Header = () => {
   const systemName = isManager 
     ? (customTitle || "מערכת ניהול ציוד") 
     : "מערכת הזמנת ציוד";
+  
+  const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : session.user.email;
 
   return (
     <header className={`${currentTheme.primary} p-4 flex justify-between items-center shadow-md`}>
@@ -128,10 +153,26 @@ export const Header = () => {
             </Link>
           </>
         )}
-        <Button onClick={handleLogout} variant="ghost" className="text-current hover:opacity-80">
-          <LogOut className="h-5 w-5 ml-2" />
-          התנתק
-        </Button>
+
+        <DropdownMenu dir="rtl">
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10 text-current">
+              <div className="bg-white/20 p-1 rounded-full">
+                <UserIcon className="h-5 w-5" />
+              </div>
+              <span className="font-medium hidden sm:inline-block">{userName}</span>
+              <ChevronDown className="h-4 w-4 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="text-right">החשבון שלי</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="flex items-center justify-between cursor-pointer text-red-600 focus:text-red-600" onClick={handleLogout}>
+              <span>התנתקות</span>
+              <LogOut className="h-4 w-4" />
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </nav>
     </header>
   );
