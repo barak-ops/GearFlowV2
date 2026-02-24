@@ -43,6 +43,7 @@ const editUserSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים.").optional().or(z.literal('')),
+  role: z.enum(['student', 'manager', 'storage_manager']), // Added storage_manager
   warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
 
@@ -73,6 +74,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       last_name: user.last_name || "",
       email: user.email || "",
       password: "",
+      role: user.role, // Set default role from user prop
       warehouse_id: user.warehouse_id || "",
     },
   });
@@ -87,6 +89,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         .update({ 
             first_name: values.first_name, 
             last_name: values.last_name,
+            role: values.role, // Update role
             warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
             updated_at: new Date().toISOString(),
         })
@@ -140,6 +143,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         last_name: user.last_name || "",
         email: user.email || "",
         password: "",
+        role: user.role,
         warehouse_id: user.warehouse_id || "",
       });
     }
@@ -216,29 +220,53 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
             />
             <FormField
               control={form.control}
-              name="warehouse_id"
+              name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>שיוך למחסן</FormLabel>
+                  <FormLabel>תפקיד</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="בחר מחסן (אופציונלי)" />
+                        <SelectValue placeholder="בחר תפקיד" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">ללא מחסן</SelectItem>
-                      {warehouses?.map((warehouse) => (
-                        <SelectItem key={warehouse.id} value={warehouse.id}>
-                          {warehouse.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="student">סטודנט</SelectItem>
+                      <SelectItem value="manager">מנהל</SelectItem>
+                      <SelectItem value="storage_manager">מנהל מחסן</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {form.watch('role') === 'storage_manager' && (
+                <FormField
+                control={form.control}
+                name="warehouse_id"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>שיוך למחסן</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="בחר מחסן" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="none">ללא מחסן</SelectItem>
+                            {warehouses?.map((warehouse) => (
+                                <SelectItem key={warehouse.id} value={warehouse.id}>
+                                {warehouse.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "מעדכן..." : "שמור שינויים"}

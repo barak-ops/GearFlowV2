@@ -6,7 +6,7 @@ export interface Profile {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  role: 'student' | 'manager';
+  role: 'student' | 'manager' | 'storage_manager'; // Updated role type
   avatar_url: string | null;
   updated_at: string | null;
   warehouse_id: string | null;

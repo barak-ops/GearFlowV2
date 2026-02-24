@@ -31,7 +31,7 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the user is a manager
+    // Verify the user is a manager or storage_manager
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
       console.error("[get-users] Auth error", userError);
@@ -43,11 +43,11 @@ serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('role')
+      .select('role, warehouse_id')
       .eq('id', user.id)
       .single();
 
-    if (profileError || profile?.role !== 'manager') {
+    if (profileError || (profile?.role !== 'manager' && profile?.role !== 'storage_manager')) {
       console.error("[get-users] Forbidden access", profile?.role);
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
@@ -55,16 +55,28 @@ serve(async (req) => {
       });
     }
 
+    // Extract warehouse_id from query parameters if present
+    const url = new URL(req.url);
+    const warehouseIdFilter = url.searchParams.get('warehouse_id');
+
     // Use service role to fetch all users from auth.users
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
     const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers();
     if (authError) throw authError;
 
-    // Fetch profiles with warehouse names
-    const { data: profiles, error: profilesError } = await adminClient
+    // Fetch profiles with warehouse names, applying filter if storage_manager
+    let profilesQuery = adminClient
       .from('profiles')
       .select('*, warehouses(name)');
+    
+    if (profile.role === 'storage_manager' && profile.warehouse_id) {
+      profilesQuery = profilesQuery.eq('warehouse_id', profile.warehouse_id);
+    } else if (profile.role === 'manager' && warehouseIdFilter) {
+      profilesQuery = profilesQuery.eq('warehouse_id', warehouseIdFilter);
+    }
+
+    const { data: profiles, error: profilesError } = await profilesQuery;
     
     if (profilesError) throw profilesError;
 

@@ -31,16 +31,17 @@ interface UserTableProps {
 const roleTranslations: Record<Profile['role'], string> = {
     student: 'סטודנט',
     manager: 'מנהל',
+    storage_manager: 'מנהל מחסן', // Added storage_manager translation
 };
 
 export function UserTable({ users }: UserTableProps) {
   const queryClient = useQueryClient();
 
   const updateRoleMutation = useMutation({
-    mutationFn: async ({ userId, newRole }: { userId: string, newRole: 'student' | 'manager' }) => {
+    mutationFn: async ({ userId, newRole, warehouseId }: { userId: string, newRole: 'student' | 'manager' | 'storage_manager', warehouseId: string | null }) => {
       const { error } = await supabase
         .from("profiles")
-        .update({ role: newRole })
+        .update({ role: newRole, warehouse_id: warehouseId })
         .eq("id", userId);
       if (error) throw error;
     },
@@ -53,9 +54,12 @@ export function UserTable({ users }: UserTableProps) {
     },
   });
 
-  const handleRoleChange = (userId: string, newRole: string) => {
-    if (newRole === 'student' || newRole === 'manager') {
-        updateRoleMutation.mutate({ userId, newRole });
+  const handleRoleChange = (userId: string, newRole: string, currentWarehouseId: string | null) => {
+    if (newRole === 'student' || newRole === 'manager' || newRole === 'storage_manager') {
+        // If changing to storage_manager, keep current warehouse_id or set to null if not applicable
+        // If changing from storage_manager, set warehouse_id to null
+        const warehouseId = newRole === 'storage_manager' ? currentWarehouseId : null;
+        updateRoleMutation.mutate({ userId, newRole, warehouseId });
     }
   };
 
@@ -86,7 +90,7 @@ export function UserTable({ users }: UserTableProps) {
             </TableCell>
             <TableCell className="text-right">
               <Select 
-                onValueChange={(value) => handleRoleChange(user.id, value)} 
+                onValueChange={(value) => handleRoleChange(user.id, value, user.warehouse_id)} 
                 defaultValue={user.role}
                 disabled={updateRoleMutation.isPending}
               >
@@ -96,6 +100,7 @@ export function UserTable({ users }: UserTableProps) {
                 <SelectContent>
                   <SelectItem value="student">{roleTranslations.student}</SelectItem>
                   <SelectItem value="manager">{roleTranslations.manager}</SelectItem>
+                  <SelectItem value="storage_manager">{roleTranslations.storage_manager}</SelectItem>
                 </SelectContent>
               </Select>
             </TableCell>

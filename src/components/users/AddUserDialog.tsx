@@ -40,6 +40,7 @@ const userSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים."),
+  role: z.enum(['student', 'manager', 'storage_manager']), // Added storage_manager
   warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
 
@@ -66,6 +67,7 @@ export function AddUserDialog() {
       last_name: "",
       email: "",
       password: "",
+      role: "student", // Default role
       warehouse_id: "",
     },
   });
@@ -80,7 +82,10 @@ export function AddUserDialog() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+            ...values,
+            warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
+        }),
       });
 
       const result = await response.json();
@@ -114,7 +119,7 @@ export function AddUserDialog() {
         <DialogHeader>
           <DialogTitle>הוספת משתמש חדש</DialogTitle>
           <DialogDescription>
-            המשתמש ייווצר עם סיסמה זמנית ויקבל תפקיד 'סטודנט' כברירת מחדל.
+            המשתמש ייווצר עם סיסמה זמנית.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -173,29 +178,52 @@ export function AddUserDialog() {
             />
             <FormField
               control={form.control}
-              name="warehouse_id"
+              name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>שיוך למחסן</FormLabel>
+                  <FormLabel>תפקיד</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="בחר מחסן (אופציונלי)" />
+                        <SelectValue placeholder="בחר תפקיד" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="none">ללא מחסן</SelectItem>
-                      {warehouses?.map((warehouse) => (
-                        <SelectItem key={warehouse.id} value={warehouse.id}>
-                          {warehouse.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="student">סטודנט</SelectItem>
+                      <SelectItem value="manager">מנהל</SelectItem>
+                      <SelectItem value="storage_manager">מנהל מחסן</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {form.watch('role') === 'storage_manager' && (
+                <FormField
+                control={form.control}
+                name="warehouse_id"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>שיוך למחסן</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="בחר מחסן" />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {warehouses?.map((warehouse) => (
+                            <SelectItem key={warehouse.id} value={warehouse.id}>
+                            {warehouse.name}
+                            </SelectItem>
+                        ))}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            )}
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "יוצר משתמש..." : "צור משתמש"}

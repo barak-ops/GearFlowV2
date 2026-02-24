@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 export interface Category {
     id: string;
@@ -56,8 +57,8 @@ interface EquipmentItem {
   invoice_number: string | null;
 }
 
-const fetchEquipment = async () => {
-  const { data, error } = await supabase
+const fetchEquipment = async (userWarehouseId: string | null) => {
+  let query = supabase
     .from("equipment_items")
     .select(`
       id,
@@ -90,6 +91,12 @@ const fetchEquipment = async () => {
       equipment_statuses ( id, name, is_rentable ),
       warehouses ( name )
     `);
+  
+  if (userWarehouseId) {
+    query = query.eq('warehouse_id', userWarehouseId);
+  }
+
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data as EquipmentItem[];
 };
@@ -101,9 +108,13 @@ const fetchCategories = async () => {
 }
 
 const EquipmentManagement = () => {
+  const { profile, loading: profileLoading } = useProfile();
+  const userWarehouseId = profile?.role === 'storage_manager' ? profile.warehouse_id : null;
+
   const { data: equipment, isLoading: isLoadingEquipment, error: equipmentError } = useQuery({
-    queryKey: ["equipment"],
-    queryFn: fetchEquipment,
+    queryKey: ["equipment", userWarehouseId],
+    queryFn: () => fetchEquipment(userWarehouseId),
+    enabled: !profileLoading,
   });
 
   const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useQuery({
@@ -139,7 +150,7 @@ const EquipmentManagement = () => {
   }, [equipment, searchTerm, selectedCategory]);
 
 
-  if (isLoadingEquipment || isLoadingCategories) {
+  if (isLoadingEquipment || isLoadingCategories || profileLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />

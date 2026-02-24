@@ -41,6 +41,9 @@ const Dashboard = () => {
     );
   }
 
+  const isManager = profile?.role === 'manager';
+  const isStorageManager = profile?.role === 'storage_manager';
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
@@ -54,11 +57,13 @@ const Dashboard = () => {
       </div>
       <div className="space-y-8">
         <p className="text-xl">ברוך הבא למערכת ניהול הציוד, {profile?.first_name || session.user.email}.</p>
-        <p className="text-sm text-muted-foreground">תפקיד נוכחי: {profile?.role === 'manager' ? 'מנהל' : 'סטודנט'}</p>
+        <p className="text-sm text-muted-foreground">
+            תפקיד נוכחי: {profile?.role === 'manager' ? 'מנהל' : profile?.role === 'storage_manager' ? `מנהל מחסן (${profile.warehouses?.name || 'לא משויך'})` : 'סטודנט'}
+        </p>
         
-        {profile?.role === 'manager' ? (
+        {(isManager || isStorageManager) ? (
           <div>
-            <h2 className="text-2xl font-semibold mb-4">פעולות מנהל</h2>
+            <h2 className="text-2xl font-semibold mb-4">פעולות ניהול</h2>
             <div className="flex gap-4">
               <Button asChild>
                 <Link to="/equipment">ניהול ציוד</Link>
@@ -66,9 +71,11 @@ const Dashboard = () => {
               <Button asChild variant="secondary">
                 <Link to="/orders">ניהול הזמנות</Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link to="/users">ניהול משתמשים</Link>
-              </Button>
+              {isManager && ( // Only managers can manage users
+                <Button asChild variant="outline">
+                    <Link to="/users">ניהול משתמשים</Link>
+                </Button>
+              )}
             </div>
           </div>
         ) : (

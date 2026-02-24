@@ -49,6 +49,7 @@ export function ProfileSetupForm() {
           last_name: values.last_name,
           role: role,
           updated_at: new Date().toISOString(), // Ensure updated_at is set
+          warehouse_id: null, // New users default to no warehouse
         }, { onConflict: 'id' }); // Conflict on 'id' means update if exists
       
       if (error) throw error;

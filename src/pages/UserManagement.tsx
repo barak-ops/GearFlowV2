@@ -4,6 +4,7 @@ import { UserTable } from "@/components/users/UserTable";
 import { Profile } from "@/hooks/useProfile";
 import { AddUserDialog } from "@/components/users/AddUserDialog";
 import { useSession } from "@/contexts/SessionContext";
+import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 const GET_USERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/get-users";
 
@@ -11,8 +12,13 @@ interface UserProfile extends Profile {
     email: string;
 }
 
-const fetchAllProfiles = async (accessToken: string) => {
-  const response = await fetch(GET_USERS_FUNCTION_URL, {
+const fetchAllProfiles = async (accessToken: string, userRole: Profile['role'] | undefined, userWarehouseId: string | null) => {
+  let url = GET_USERS_FUNCTION_URL;
+  if (userRole === 'storage_manager' && userWarehouseId) {
+    url += `?warehouse_id=${userWarehouseId}`;
+  }
+
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -38,14 +44,17 @@ const fetchAllProfiles = async (accessToken: string) => {
 
 const UserManagement = () => {
   const { session } = useSession();
+  const { profile, loading: profileLoading } = useProfile();
+  const userRole = profile?.role;
+  const userWarehouseId = profile?.warehouse_id;
 
   const { data: profiles, isLoading, error } = useQuery({
-    queryKey: ["profiles"],
-    queryFn: () => fetchAllProfiles(session!.access_token),
-    enabled: !!session,
+    queryKey: ["profiles", userRole, userWarehouseId],
+    queryFn: () => fetchAllProfiles(session!.access_token, userRole, userWarehouseId),
+    enabled: !!session && !profileLoading,
   });
 
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />
