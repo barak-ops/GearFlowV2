@@ -97,8 +97,8 @@ export const Header = () => {
   
   const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : session.user.email;
 
-  const hoverClasses = "hover:bg-[#d9d983] hover:text-primary px-2 py-1 rounded-md transition-colors";
-  const dropdownItemClasses = "focus:bg-[#d9d983] focus:text-primary cursor-pointer";
+  const hoverClasses = "hover:text-[#d9d983] px-2 py-1 rounded-md transition-colors";
+  const dropdownItemClasses = "focus:text-[#d9d983] cursor-pointer";
 
   return (
     <header className={`${currentTheme.primary} p-4 flex justify-between items-center shadow-md`}>
@@ -168,7 +168,7 @@ export const Header = () => {
           <>
             <Link 
               to="/new-order" 
-              className="flex items-center gap-1 px-4 py-2 rounded-full bg-yellow-500 hover:bg-[#d9d983] text-primary font-bold transition-colors shadow-sm"
+              className={`flex items-center gap-1 px-4 py-2 rounded-full bg-yellow-500 text-primary font-bold transition-colors shadow-sm hover:text-[#d9d983]`}
             >
               <PlusCircle className="h-5 w-5" />
               הזמנה חדשה
@@ -197,7 +197,7 @@ export const Header = () => {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="text-right">החשבון שלי</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className={`flex items-center justify-between text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer`} onClick={handleLogout}>
+            <DropdownMenuItem className={`flex items-center justify-between text-red-600 focus:text-[#d9d983] cursor-pointer`} onClick={handleLogout}>
               <span>התנתקות</span>
               <LogOut className="h-4 w-4" />
             </DropdownMenuItem>
