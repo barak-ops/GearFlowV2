@@ -1,4 +1,4 @@
--- Update the notify_managers_on_new_order function to include the storage manager of the ordering user's warehouse
+-- Update the notify_managers_on_new_order function to correctly include the storage manager of the ordering user's warehouse
 CREATE OR REPLACE FUNCTION public.notify_managers_on_new_order()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -8,6 +8,7 @@ DECLARE
   manager_ids UUID[];
   student_warehouse_id UUID;
   student_name TEXT;
+  relevant_storage_manager_id UUID;
 BEGIN
   -- Get the student's warehouse_id and name
   SELECT warehouse_id, COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')
@@ -15,29 +16,29 @@ BEGIN
   FROM public.profiles
   WHERE id = NEW.user_id;
 
-  -- Collect IDs of all general managers
+  -- Initialize manager_ids with all general managers
   SELECT ARRAY_AGG(id)
   INTO manager_ids
   FROM public.profiles
   WHERE role = 'manager';
 
-  -- If the student has a warehouse and there's a storage manager for that warehouse, add their ID
+  -- If the student has a warehouse, find the storage manager for that warehouse
   IF student_warehouse_id IS NOT NULL THEN
-    SELECT ARRAY_AGG(id)
-    INTO manager_ids
+    SELECT id
+    INTO relevant_storage_manager_id
     FROM public.profiles
     WHERE role = 'storage_manager' AND warehouse_id = student_warehouse_id
-    UNION
-    SELECT ARRAY_AGG(id)
-    FROM public.profiles
-    WHERE role = 'manager'; -- Include general managers as well
+    LIMIT 1; -- Assuming one storage manager per warehouse
+
+    -- If a relevant storage manager is found, add them to the list of manager_ids
+    IF relevant_storage_manager_id IS NOT NULL THEN
+      manager_ids := ARRAY_APPEND(manager_ids, relevant_storage_manager_id);
+    END IF;
   END IF;
 
-  -- Insert notifications for all collected manager IDs
+  -- Insert notifications for all collected manager IDs (distinct to avoid duplicates)
   INSERT INTO public.notifications (user_id, title, message, link)
-  SELECT DISTINCT id, 'בקשת השאלה חדשה', 'התקבלה בקשת השאלה חדשה מ-' || student_name, '/orders'
-  FROM public.profiles
-  WHERE id = ANY(manager_ids);
+  SELECT DISTINCT unnest(manager_ids), 'בקשת השאלה חדשה', 'התקבלה בקשת השאלה חדשה מ-' || student_name, '/orders';
 
   RETURN NEW;
 END;
