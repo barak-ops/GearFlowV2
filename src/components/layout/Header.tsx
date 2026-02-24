@@ -97,63 +97,66 @@ export const Header = () => {
   
   const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : session.user.email;
 
+  const hoverClasses = "hover:bg-[#d9d983] hover:text-primary px-2 py-1 rounded-md transition-colors";
+  const dropdownItemClasses = "focus:bg-[#d9d983] focus:text-primary cursor-pointer";
+
   return (
     <header className={`${currentTheme.primary} p-4 flex justify-between items-center shadow-md`}>
       <div className="flex items-center gap-4">
-        <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <Link to="/dashboard" className={`flex items-center gap-2 ${hoverClasses}`}>
           <Home className="h-6 w-6" />
           <span className="text-lg font-bold">{systemName}</span>
         </Link>
       </div>
-      <nav className="flex items-center gap-6">
+      <nav className="flex items-center gap-4">
         {isManager ? (
           <>
-            <Link to="/equipment" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link to="/equipment" className={`flex items-center gap-1 ${hoverClasses}`}>
               <Package className="h-5 w-5" />
               ניהול ציוד
             </Link>
-            <Link to="/orders" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link to="/orders" className={`flex items-center gap-1 ${hoverClasses}`}>
               <ListOrdered className="h-5 w-5" />
               ניהול הזמנות
             </Link>
-            <Link to="/reports" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link to="/reports" className={`flex items-center gap-1 ${hoverClasses}`}>
               <BarChart className="h-5 w-5" />
               דוחות
             </Link>
-            <Link to="/audit" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link to="/audit" className={`flex items-center gap-1 ${hoverClasses}`}>
               <ScrollText className="h-5 w-5" />
               יומן ביקורת
             </Link>
             
             <DropdownMenu dir="rtl">
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-1 hover:bg-white/10 text-current p-0 h-auto font-normal">
+                <Button variant="ghost" className={`flex items-center gap-1 text-current p-2 h-auto font-normal ${hoverClasses}`}>
                   <ShieldCheck className="h-5 w-5" />
                   ניהול המערכת
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link to="/settings" className="flex items-center justify-between w-full cursor-pointer">
+                <DropdownMenuItem asChild className={dropdownItemClasses}>
+                  <Link to="/settings" className="flex items-center justify-between w-full">
                     <span>הגדרות</span>
                     <SettingsIcon className="h-4 w-4" />
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/users" className="flex items-center justify-between w-full cursor-pointer">
+                <DropdownMenuItem asChild className={dropdownItemClasses}>
+                  <Link to="/users" className="flex items-center justify-between w-full">
                     <span>ניהול משתמשים</span>
                     <Users className="h-4 w-4" />
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/managed-lists" className="flex items-center justify-between w-full cursor-pointer">
+                <DropdownMenuItem asChild className={dropdownItemClasses}>
+                  <Link to="/managed-lists" className="flex items-center justify-between w-full">
                     <span>רשימות מנוהלות</span>
                     <ListChecks className="h-4 w-4" />
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/consent-templates" className="flex items-center justify-between w-full cursor-pointer">
+                <DropdownMenuItem asChild className={dropdownItemClasses}>
+                  <Link to="/consent-templates" className="flex items-center justify-between w-full">
                     <span>טפסי הסכמה</span>
                     <FileText className="h-4 w-4" />
                   </Link>
@@ -165,16 +168,16 @@ export const Header = () => {
           <>
             <Link 
               to="/new-order" 
-              className="flex items-center gap-1 px-4 py-2 rounded-full bg-yellow-500 hover:bg-yellow-400 text-primary font-bold transition-colors shadow-sm"
+              className="flex items-center gap-1 px-4 py-2 rounded-full bg-yellow-500 hover:bg-[#d9d983] text-primary font-bold transition-colors shadow-sm"
             >
               <PlusCircle className="h-5 w-5" />
               הזמנה חדשה
             </Link>
-            <Link to="/catalog" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link to="/catalog" className={`flex items-center gap-1 ${hoverClasses}`}>
               <Package className="h-5 w-5" />
               קטלוג ציוד
             </Link>
-            <Link to="/my-orders" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link to="/my-orders" className={`flex items-center gap-1 ${hoverClasses}`}>
               <ListOrdered className="h-5 w-5" />
               ההזמנות שלי
             </Link>
@@ -183,7 +186,7 @@ export const Header = () => {
 
         <DropdownMenu dir="rtl">
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/10 text-current">
+            <Button variant="ghost" className={`flex items-center gap-2 text-current p-2 h-auto ${hoverClasses}`}>
               <div className="bg-white/20 p-1 rounded-full">
                 <UserIcon className="h-5 w-5" />
               </div>
@@ -194,7 +197,7 @@ export const Header = () => {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="text-right">החשבון שלי</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex items-center justify-between cursor-pointer text-red-600 focus:text-red-600" onClick={handleLogout}>
+            <DropdownMenuItem className={`flex items-center justify-between text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer`} onClick={handleLogout}>
               <span>התנתקות</span>
               <LogOut className="h-4 w-4" />
             </DropdownMenuItem>
