@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Profile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { Pencil } from "lucide-react";
@@ -43,7 +43,7 @@ const editUserSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים.").optional().or(z.literal('')),
-  role: z.enum(['student', 'manager', 'storage_manager']), // Added storage_manager
+  role: z.enum(['student', 'manager', 'storage_manager']),
   warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
 
@@ -74,14 +74,27 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       last_name: user.last_name || "",
       email: user.email || "",
       password: "",
-      role: user.role, // Set default role from user prop
+      role: user.role,
       warehouse_id: user.warehouse_id || "",
     },
   });
 
+  // Watch for changes in the role field
+  const selectedRole = form.watch('role');
+
+  // Reset warehouse_id if role changes from storage_manager
+  useEffect(() => {
+    if (selectedRole !== 'storage_manager') {
+      form.setValue('warehouse_id', "");
+    }
+  }, [selectedRole, form]);
+
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof editUserSchema>) => {
       if (!session) throw new Error("User not authenticated.");
+
+      // Determine the warehouse_id to save
+      const warehouseIdToSave = values.role === 'storage_manager' && values.warehouse_id !== "" ? values.warehouse_id : null;
 
       // Update profile data
       const { error: profileError } = await supabase
@@ -89,8 +102,8 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         .update({ 
             first_name: values.first_name, 
             last_name: values.last_name,
-            role: values.role, // Update role
-            warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
+            role: values.role,
+            warehouse_id: warehouseIdToSave, // Use the determined warehouse_id
             updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
@@ -240,14 +253,14 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 </FormItem>
               )}
             />
-            {form.watch('role') === 'storage_manager' && (
+            {selectedRole === 'storage_manager' && (
                 <FormField
                 control={form.control}
                 name="warehouse_id"
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>שיוך למחסן</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || "none"}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="בחר מחסן" />
