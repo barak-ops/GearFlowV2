@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { Badge } from "@/components/ui/badge";
+import { useLocation, useNavigate } from "react-router-dom";
+import React from "react";
 
 interface ManagedListItem {
     id: string;
@@ -45,6 +47,15 @@ const fetchStatuses = async () => {
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return data as EquipmentStatus[];
+};
+
+const fetchOrderStatuses = async () => {
+    const { data, error } = await supabase
+        .from("order_statuses")
+        .select('id, name')
+        .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data as ManagedListItem[];
 };
 
 // Component for Status Table
@@ -117,6 +128,66 @@ const StatusTable = ({ statuses }: { statuses: EquipmentStatus[] | undefined }) 
     );
 };
 
+// Component for Order Status Table
+const OrderStatusTable = ({ statuses }: { statuses: ManagedListItem[] | undefined }) => {
+    const queryClient = useQueryClient();
+
+    const deleteMutation = useMutation({
+        mutationFn: async (statusId: string) => {
+          const { error } = await supabase.from("order_statuses").delete().eq("id", statusId);
+          if (error) throw error;
+        },
+        onSuccess: () => {
+          showSuccess("סטטוס ההזמנה נמחק בהצלחה!");
+          queryClient.invalidateQueries({ queryKey: ["order_statuses"] });
+          queryClient.invalidateQueries({ queryKey: ["all-orders"] }); // Invalidate orders to check status usage
+        },
+        onError: (error) => {
+          showError(`שגיאה במחיקת סטטוס ההזמנה: ${error.message}`);
+        },
+      });
+    
+      const handleDelete = (statusId: string) => {
+        if (window.confirm("האם אתה בטוח שברצונך למחוק סטטוס זה? פעולה זו אינה הפיכה.")) {
+          deleteMutation.mutate(statusId);
+        }
+      };
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>שם הסטטוס</TableHead>
+                    <TableHead className="text-right">פעולות</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {statuses?.map((status) => (
+                    <TableRow key={status.id}>
+                        <TableCell className="font-medium">{status.name}</TableCell>
+                        <TableCell className="flex gap-2 justify-end">
+                            <ManagedListEditDialog 
+                                item={status} 
+                                listName="order_statuses" 
+                                queryKey="order_statuses" 
+                            />
+                            <Button 
+                                variant="destructive" 
+                                size="icon" 
+                                className="h-8 w-8"
+                                onClick={() => handleDelete(status.id)}
+                                disabled={deleteMutation.isPending}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    );
+};
+
 
 const ManagedListsPage = () => {
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
@@ -155,9 +226,46 @@ const ManagedListsPage = () => {
     queryKey: ["warehouses"],
     queryFn: () => fetchManagedList("warehouses"),
   });
+  const { data: orderStatuses, isLoading: isLoadingOrderStatuses } = useQuery({
+    queryKey: ["order_statuses"],
+    queryFn: fetchOrderStatuses,
+  });
+
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const urlParams = new URLSearchParams(location.search);
+  const activeTab = urlParams.get('tab') || 'equipment_statuses';
+
+  // Effect to initialize default order statuses if table is empty
+  React.useEffect(() => {
+    if (activeTab === 'order_statuses' && !isLoadingOrderStatuses && orderStatuses?.length === 0) {
+        const defaultStatuses = [
+            { name: 'בקשה' }, // pending
+            { name: 'אושר' }, // approved
+            { name: 'נדחה' }, // rejected
+            { name: 'מושאל' }, // checked_out
+            { name: 'הוחזר' }, // returned
+            { name: 'בוטל' }, // cancelled
+        ];
+
+        const insertDefaults = async () => {
+            const { error } = await supabase.from("order_statuses").insert(defaultStatuses);
+            if (error) {
+                showError(`שגיאה בהוספת סטטוסי הזמנה ברירת מחדל: ${error.message}`);
+            } else {
+                showSuccess("סטטוסי הזמנה ברירת מחדל הוגדרו.");
+                queryClient.invalidateQueries({ queryKey: ["order_statuses"] });
+            }
+        };
+        insertDefaults();
+    }
+  }, [activeTab, isLoadingOrderStatuses, orderStatuses?.length, queryClient]);
 
 
-  if (isLoadingCategories || isLoadingItemTypes || isLoadingSuppliers || isLoadingLocations || isLoadingSets || isLoadingInsuranceTypes || isLoadingManufacturers || isLoadingStatuses || isLoadingWarehouses) {
+  const isLoadingAny = isLoadingCategories || isLoadingItemTypes || isLoadingSuppliers || isLoadingLocations || isLoadingSets || isLoadingInsuranceTypes || isLoadingManufacturers || isLoadingStatuses || isLoadingWarehouses || isLoadingOrderStatuses;
+
+  if (isLoadingAny) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />
@@ -165,54 +273,16 @@ const ManagedListsPage = () => {
     );
   }
 
+  const handleTabChange = (tab: string) => {
+    navigate(`?tab=${tab}`);
+  };
+
   return (
     <div className="p-8 space-y-8">
-      <h1 className="text-3xl font-bold mb-8">ניהול רשימות מנוהלות</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
-        {/* Equipment Statuses Card */}
-        <Card className="md:col-span-2">
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>סטטוסים לציוד</CardTitle>
-            <ManagedStatusAddDialog />
-          </CardHeader>
-          <CardContent>
-            {statuses && statuses.length > 0 ? (
-              <StatusTable statuses={statuses} />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו סטטוסים.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Warehouses Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>מחסנים</CardTitle>
-            <ManagedListAddDialog
-              listName="warehouses"
-              queryKey="warehouses"
-              dialogTitle="הוסף מחסן חדש"
-              dialogDescription="מלא את הפרטים כדי להוסיף מחסן חדש."
-              formLabel="שם המחסן"
-              placeholder="לדוגמה: מחסן ציוד צילום"
-              buttonText="הוסף מחסן"
-            />
-          </CardHeader>
-          <CardContent>
-            {warehouses && warehouses.length > 0 ? (
-              <ManagedListTable items={warehouses} listName="warehouses" queryKey="warehouses" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו מחסנים.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Categories Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>קטגוריות</CardTitle>
+      <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+        <h1 className="text-3xl font-bold">ניהול מערכת</h1>
+        {activeTab === 'equipment_statuses' && <ManagedStatusAddDialog />}
+        {activeTab === 'categories' && (
             <ManagedListAddDialog
               listName="categories"
               queryKey="categories"
@@ -222,20 +292,8 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: מצלמות"
               buttonText="הוסף קטגוריה"
             />
-          </CardHeader>
-          <CardContent>
-            {categories && categories.length > 0 ? (
-              <CategoryTable categories={categories} />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו קטגוריות.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Item Types Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>סוגי פריטים</CardTitle>
+        )}
+        {activeTab === 'item_types' && (
             <ManagedListAddDialog
               listName="item_types"
               queryKey="item_types"
@@ -245,20 +303,8 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: מצלמה, עדשה, חצובה"
               buttonText="הוסף סוג פריט"
             />
-          </CardHeader>
-          <CardContent>
-            {itemTypes && itemTypes.length > 0 ? (
-              <ManagedListTable items={itemTypes} listName="item_types" queryKey="item_types" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו סוגי פריטים.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Suppliers Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>ספקים</CardTitle>
+        )}
+        {activeTab === 'suppliers' && (
             <ManagedListAddDialog
               listName="suppliers"
               queryKey="suppliers"
@@ -268,20 +314,8 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: B&H, אילן ציוד צילום"
               buttonText="הוסף ספק"
             />
-          </CardHeader>
-          <CardContent>
-            {suppliers && suppliers.length > 0 ? (
-              <ManagedListTable items={suppliers} listName="suppliers" queryKey="suppliers" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו ספקים.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Locations Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>מיקומים</CardTitle>
+        )}
+        {activeTab === 'locations' && (
             <ManagedListAddDialog
               listName="locations"
               queryKey="locations"
@@ -291,20 +325,8 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: מחסן ראשי, סטודיו א'"
               buttonText="הוסף מיקום"
             />
-          </CardHeader>
-          <CardContent>
-            {locations && locations.length > 0 ? (
-              <ManagedListTable items={locations} listName="locations" queryKey="locations" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו מיקומים.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Sets Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>סטים</CardTitle>
+        )}
+        {activeTab === 'sets' && (
             <ManagedListAddDialog
               listName="sets"
               queryKey="sets"
@@ -314,20 +336,8 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: סט צילום בסיסי, סט תאורה"
               buttonText="הוסף סט"
             />
-          </CardHeader>
-          <CardContent>
-            {sets && sets.length > 0 ? (
-              <ManagedListTable items={sets} listName="sets" queryKey="sets" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו סטים.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Insurance Types Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>סוגי ביטוח</CardTitle>
+        )}
+        {activeTab === 'insurance_types' && (
             <ManagedListAddDialog
               listName="insurance_types"
               queryKey="insurance_types"
@@ -337,20 +347,8 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: ביטוח מקיף, ביטוח צד ג'"
               buttonText="הוסף סוג ביטוח"
             />
-          </CardHeader>
-          <CardContent>
-            {insuranceTypes && insuranceTypes.length > 0 ? (
-              <ManagedListTable items={insuranceTypes} listName="insurance_types" queryKey="insurance_types" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו סוגי ביטוח.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Manufacturers Card */}
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>יצרנים</CardTitle>
+        )}
+        {activeTab === 'manufacturers' && (
             <ManagedListAddDialog
               listName="manufacturers"
               queryKey="manufacturers"
@@ -360,16 +358,135 @@ const ManagedListsPage = () => {
               placeholder="לדוגמה: Sony, Canon, Nikon"
               buttonText="הוסף יצרן"
             />
-          </CardHeader>
-          <CardContent>
-            {manufacturers && manufacturers.length > 0 ? (
-              <ManagedListTable items={manufacturers} listName="manufacturers" queryKey="manufacturers" />
-            ) : (
-              <p className="text-center p-4 text-muted-foreground">לא נמצאו יצרנים.</p>
-            )}
-          </CardContent>
-        </Card>
+        )}
+        {activeTab === 'warehouses' && (
+            <ManagedListAddDialog
+              listName="warehouses"
+              queryKey="warehouses"
+              dialogTitle="הוסף מחסן חדש"
+              dialogDescription="מלא את הפרטים כדי להוסיף מחסן חדש."
+              formLabel="שם המחסן"
+              placeholder="לדוגמה: מחסן ציוד צילום"
+              buttonText="הוסף מחסן"
+            />
+        )}
+        {activeTab === 'order_statuses' && (
+            <ManagedListAddDialog
+              listName="order_statuses"
+              queryKey="order_statuses"
+              dialogTitle="הוסף סטטוס הזמנה חדש"
+              dialogDescription="מלא את הפרטים כדי להוסיף סטטוס חדש להזמנות."
+              formLabel="שם סטטוס ההזמנה"
+              placeholder="לדוגמה: בהמתנה לאישור סופי"
+              buttonText="הוסף סטטוס"
+            />
+        )}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>ניהול רשימות</CardTitle>
+          <CardDescription>בחר רשימה לניהול מהלשוניות למטה.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+                <TabsList className="grid w-full grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8">
+                    <TabsTrigger value="equipment_statuses">סטטוסי ציוד</TabsTrigger>
+                    <TabsTrigger value="warehouses">מחסנים</TabsTrigger>
+                    <TabsTrigger value="categories">קטגוריות</TabsTrigger>
+                    <TabsTrigger value="item_types">סוגי פריטים</TabsTrigger>
+                    <TabsTrigger value="suppliers">ספקים</TabsTrigger>
+                    <TabsTrigger value="locations">מיקומים</TabsTrigger>
+                    <TabsTrigger value="sets">סטים</TabsTrigger>
+                    <TabsTrigger value="insurance_types">סוגי ביטוח</TabsTrigger>
+                    <TabsTrigger value="manufacturers">יצרנים</TabsTrigger>
+                    <TabsTrigger value="order_statuses">סטטוסי הזמנה</TabsTrigger>
+                </TabsList>
+                
+                <div className="mt-6">
+                    <TabsContent value="equipment_statuses">
+                        {statuses && statuses.length > 0 ? (
+                            <StatusTable statuses={statuses} />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו סטטוסים לציוד.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="warehouses">
+                        {warehouses && warehouses.length > 0 ? (
+                            <ManagedListTable items={warehouses} listName="warehouses" queryKey="warehouses" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו מחסנים.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="categories">
+                        {categories && categories.length > 0 ? (
+                            <CategoryTable categories={categories} />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו קטגוריות.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="item_types">
+                        {itemTypes && itemTypes.length > 0 ? (
+                            <ManagedListTable items={itemTypes} listName="item_types" queryKey="item_types" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו סוגי פריטים.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="suppliers">
+                        {suppliers && suppliers.length > 0 ? (
+                            <ManagedListTable items={suppliers} listName="suppliers" queryKey="suppliers" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו ספקים.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="locations">
+                        {locations && locations.length > 0 ? (
+                            <ManagedListTable items={locations} listName="locations" queryKey="locations" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו מיקומים.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="sets">
+                        {sets && sets.length > 0 ? (
+                            <ManagedListTable items={sets} listName="sets" queryKey="sets" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו סטים.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="insurance_types">
+                        {insuranceTypes && insuranceTypes.length > 0 ? (
+                            <ManagedListTable items={insuranceTypes} listName="insurance_types" queryKey="insurance_types" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו סוגי ביטוח.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="manufacturers">
+                        {manufacturers && manufacturers.length > 0 ? (
+                            <ManagedListTable items={manufacturers} listName="manufacturers" queryKey="manufacturers" />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו יצרנים.</p>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="order_statuses">
+                        {orderStatuses && orderStatuses.length > 0 ? (
+                            <OrderStatusTable statuses={orderStatuses} />
+                        ) : (
+                            <p className="text-center p-4 text-muted-foreground">לא נמצאו סטטוסי הזמנה. המערכת מנסה להגדיר ברירת מחדל...</p>
+                        )}
+                    </TabsContent>
+                </div>
+            </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 };
