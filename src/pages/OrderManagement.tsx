@@ -40,16 +40,38 @@ const fetchAllOrders = async (userWarehouseId: string | null) => {
   
   if (userWarehouseId) {
     // For storage managers, filter orders by items in their warehouse
-    // This subquery selects order_ids that contain at least one item from the user's warehouse
-    query = query.in('id', supabase
+    // First, get all item_ids associated with the user's warehouse
+    const { data: warehouseItems, error: itemsError } = await supabase
+      .from('equipment_items')
+      .select('id')
+      .eq('warehouse_id', userWarehouseId);
+
+    if (itemsError) throw itemsError;
+
+    const itemIdsInWarehouse = warehouseItems.map(item => item.id);
+
+    // If there are no items in the warehouse, return an empty array of orders
+    if (itemIdsInWarehouse.length === 0) {
+      return [];
+    }
+
+    // Then, get all order_ids that contain any of these items
+    const { data: orderItems, error: orderItemsError } = await supabase
       .from('order_items')
       .select('order_id')
-      .in('item_id', supabase
-        .from('equipment_items')
-        .select('id')
-        .eq('warehouse_id', userWarehouseId)
-      )
-    );
+      .in('item_id', itemIdsInWarehouse);
+
+    if (orderItemsError) throw orderItemsError;
+
+    const orderIdsWithWarehouseItems = [...new Set(orderItems.map(oi => oi.order_id))]; // Use Set to get unique order IDs
+
+    // If no orders contain items from this warehouse, return an empty array
+    if (orderIdsWithWarehouseItems.length === 0) {
+      return [];
+    }
+
+    // Finally, filter the main orders query by these order_ids
+    query = query.in('id', orderIdsWithWarehouseItems);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
