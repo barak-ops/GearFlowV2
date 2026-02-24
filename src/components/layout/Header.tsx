@@ -18,7 +18,8 @@ import {
   ScrollText, 
   PlusCircle,
   User as UserIcon,
-  ChevronDown
+  ChevronDown,
+  ShieldCheck
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -115,18 +116,6 @@ export const Header = () => {
               <ListOrdered className="h-5 w-5" />
               ניהול הזמנות
             </Link>
-            <Link to="/users" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
-              <Users className="h-5 w-5" />
-              ניהול משתמשים
-            </Link>
-            <Link to="/managed-lists" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
-              <ListChecks className="h-5 w-5" />
-              רשימות מנוהלות
-            </Link>
-            <Link to="/consent-templates" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
-              <FileText className="h-5 w-5" />
-              טפסי הסכמה
-            </Link>
             <Link to="/reports" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
               <BarChart className="h-5 w-5" />
               דוחות
@@ -135,10 +124,42 @@ export const Header = () => {
               <ScrollText className="h-5 w-5" />
               יומן ביקורת
             </Link>
-            <Link to="/settings" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
-              <SettingsIcon className="h-5 w-5" />
-              הגדרות
-            </Link>
+            
+            <DropdownMenu dir="rtl">
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="flex items-center gap-1 hover:bg-white/10 text-current p-0 h-auto font-normal">
+                  <ShieldCheck className="h-5 w-5" />
+                  ניהול המערכת
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="flex items-center justify-between w-full cursor-pointer">
+                    <span>הגדרות</span>
+                    <SettingsIcon className="h-4 w-4" />
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/users" className="flex items-center justify-between w-full cursor-pointer">
+                    <span>ניהול משתמשים</span>
+                    <Users className="h-4 w-4" />
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/managed-lists" className="flex items-center justify-between w-full cursor-pointer">
+                    <span>רשימות מנוהלות</span>
+                    <ListChecks className="h-4 w-4" />
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/consent-templates" className="flex items-center justify-between w-full cursor-pointer">
+                    <span>טפסי הסכמה</span>
+                    <FileText className="h-4 w-4" />
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         ) : (
           <>
