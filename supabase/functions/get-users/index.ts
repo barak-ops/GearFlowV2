@@ -55,10 +55,6 @@ serve(async (req) => {
       });
     }
 
-    // Extract warehouse_id from query parameters if present
-    const url = new URL(req.url);
-    const warehouseIdFilter = url.searchParams.get('warehouse_id');
-
     // Use service role to fetch all users from auth.users
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
@@ -70,10 +66,9 @@ serve(async (req) => {
       .from('profiles')
       .select('*, warehouses(name)');
     
+    // If the current user is a storage manager, filter profiles by their warehouse_id
     if (profile.role === 'storage_manager' && profile.warehouse_id) {
       profilesQuery = profilesQuery.eq('warehouse_id', profile.warehouse_id);
-    } else if (profile.role === 'manager' && warehouseIdFilter) {
-      profilesQuery = profilesQuery.eq('warehouse_id', warehouseIdFilter);
     }
 
     const { data: profiles, error: profilesError } = await profilesQuery;

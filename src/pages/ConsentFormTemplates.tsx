@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ConsentTemplateAddDialog } from "@/components/consent-templates/ConsentTemplateAddDialog";
 import { ConsentTemplateTable } from "@/components/consent-templates/ConsentTemplateTable";
+import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 interface ConsentTemplate {
   id: string;
@@ -24,12 +25,17 @@ const fetchConsentTemplates = async () => {
 };
 
 const ConsentFormTemplates = () => {
+  const { profile, loading: profileLoading } = useProfile();
+  const isManager = profile?.role === 'manager';
+  const isStorageManager = profile?.role === 'storage_manager';
+
   const { data: templates, isLoading, error } = useQuery({
     queryKey: ["consent-templates"],
     queryFn: fetchConsentTemplates,
+    enabled: !profileLoading && (isManager || isStorageManager), // Only fetch if manager or storage manager
   });
 
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />
@@ -39,6 +45,10 @@ const ConsentFormTemplates = () => {
 
   if (error) {
     return <div>שגיאה בטעינת תבניות ההסכמה: {error.message}</div>;
+  }
+
+  if (!isManager && !isStorageManager) {
+    return <div className="p-8 text-center text-lg text-muted-foreground">אין לך הרשאות לגשת לעמוד זה.</div>;
   }
 
   return (

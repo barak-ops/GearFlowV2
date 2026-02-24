@@ -40,6 +40,7 @@ const fetchAllOrders = async (userWarehouseId: string | null) => {
   
   if (userWarehouseId) {
     // For storage managers, filter orders by items in their warehouse
+    // This subquery selects order_ids that contain at least one item from the user's warehouse
     query = query.in('id', supabase
       .from('order_items')
       .select('order_id')

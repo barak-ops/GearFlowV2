@@ -14,6 +14,7 @@ interface UserProfile extends Profile {
 
 const fetchAllProfiles = async (accessToken: string, userRole: Profile['role'] | undefined, userWarehouseId: string | null) => {
   let url = GET_USERS_FUNCTION_URL;
+  // Only add warehouse_id filter if the user is a storage_manager and has a warehouse_id
   if (userRole === 'storage_manager' && userWarehouseId) {
     url += `?warehouse_id=${userWarehouseId}`;
   }
