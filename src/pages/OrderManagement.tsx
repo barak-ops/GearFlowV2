@@ -21,7 +21,7 @@ interface Order {
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
   warehouse_id: string | null; // Added warehouse_id to Order interface
-  order_items?: { equipment_items: { warehouses: { name: string } | null } | null }[]; // Added for warehouse info
+  warehouses?: { name: string } | null; // Added warehouses relation
 }
 
 const fetchAllOrders = async (userWarehouseId: string | null, userRole: string | undefined) => {
