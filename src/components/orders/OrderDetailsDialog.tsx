@@ -559,30 +559,33 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                 <div className="space-y-4 mb-4">
                                     {activeConsentTemplates.map(template => {
                                         const hasUserConsented = userConsents?.some(uc => uc.consent_template_id === template.id);
-                                        return (
-                                            <div key={template.id} className="border p-3 rounded-md bg-white">
-                                                <h5 className="font-bold text-base mb-2">{template.name}</h5>
-                                                <div className="max-h-40 overflow-y-auto text-sm text-gray-700 border p-2 rounded-md bg-gray-50">
-                                                    <p className="whitespace-pre-wrap">{template.content}</p>
+                                        if (template.is_receipt_form) { // Only show receipt forms here
+                                            return (
+                                                <div key={template.id} className="border p-3 rounded-md bg-white">
+                                                    <h5 className="font-bold text-base mb-2">{template.name}</h5>
+                                                    <div className="max-h-40 overflow-y-auto text-sm text-gray-700 border p-2 rounded-md bg-gray-50">
+                                                        <p className="whitespace-pre-wrap">{template.content}</p>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2 space-x-reverse mt-3">
+                                                        <Checkbox
+                                                            id={`consent-${template.id}`}
+                                                            checked={consentsReadStatus[template.id]}
+                                                            onCheckedChange={(checked) => setConsentsReadStatus(prev => ({ ...prev, [template.id]: !!checked }))}
+                                                            disabled={hasUserConsented}
+                                                        />
+                                                        <Label htmlFor={`consent-${template.id}`} className="font-semibold cursor-pointer">
+                                                            אני מאשר/ת שקראתי והבנתי את תנאי טופס ההסכמה.
+                                                        </Label>
+                                                    </div>
+                                                    {hasUserConsented && (
+                                                        <p className="text-xs text-green-600 mt-1">
+                                                            (הסכמה זו נשמרה בעבר בתאריך {format(new Date(userConsents.find(uc => uc.consent_template_id === template.id)!.signed_at), "PPP", { locale: he })})
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                <div className="flex items-center space-x-2 space-x-reverse mt-3">
-                                                    <Checkbox
-                                                        id={`consent-${template.id}`}
-                                                        checked={consentsReadStatus[template.id]}
-                                                        onCheckedChange={(checked) => setConsentsReadStatus(prev => ({ ...prev, [template.id]: !!checked }))}
-                                                        disabled={hasUserConsented}
-                                                    />
-                                                    <Label htmlFor={`consent-${template.id}`} className="font-semibold cursor-pointer">
-                                                        אני מאשר/ת שקראתי והבנתי את תנאי טופס ההסכמה.
-                                                    </Label>
-                                                </div>
-                                                {hasUserConsented && (
-                                                    <p className="text-xs text-green-600 mt-1">
-                                                        (הסכמה זו נשמרה בעבר בתאריך {format(new Date(userConsents.find(uc => uc.consent_template_id === template.id)!.signed_at), "PPP", { locale: he })})
-                                                    </p>
-                                                )}
-                                            </div>
-                                        );
+                                            );
+                                        }
+                                        return null;
                                     })}
                                 </div>
                             )}
