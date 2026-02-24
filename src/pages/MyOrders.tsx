@@ -34,12 +34,12 @@ interface Order {
 }
 
 const statusTranslations: Record<string, string> = {
-    pending: 'בקשה',
-    approved: 'אושר',
-    rejected: 'נדחה',
-    checked_out: 'מושאל',
-    returned: 'הוחזר',
-    cancelled: 'בוטל'
+    pending: 'Request',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    checked_out: 'Active',
+    returned: 'Ordered',
+    cancelled: 'Cancelled'
 };
 
 const statusColors: Record<string, string> = {

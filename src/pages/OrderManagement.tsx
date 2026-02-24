@@ -21,30 +21,6 @@ interface Order {
   recurrence_interval: 'day' | 'week' | 'month' | null;
 }
 
-const statusTranslations: Record<string, string> = {
-    pending: 'בקשה',
-    approved: 'אושר',
-    rejected: 'נדחה',
-    checked_out: 'מושאל',
-    returned: 'הוחזר',
-    cancelled: 'בוטל'
-};
-
-const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-500',
-    approved: 'bg-green-500',
-    rejected: 'bg-red-500',
-    checked_out: 'bg-blue-500',
-    returned: 'bg-gray-500',
-    cancelled: 'bg-gray-400'
-};
-
-const recurrenceIntervalTranslations: Record<string, string> = {
-    day: 'יומי',
-    week: 'שבועי',
-    month: 'חודשי',
-};
-
 const fetchAllOrders = async () => {
   const { data, error } = await supabase
     .from("orders")

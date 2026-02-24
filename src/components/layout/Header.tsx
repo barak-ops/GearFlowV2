@@ -133,7 +133,7 @@ export const Header = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className={`flex items-center gap-1 text-current p-2 h-auto font-normal ${hoverClasses}`}>
                   <ShieldCheck className="h-5 w-5" />
-                  ניהול מערכת
+                  ניהול המערכת
                   <ChevronDown className="h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
@@ -160,13 +160,6 @@ export const Header = () => {
                   <Link to="/consent-templates" className="flex items-center justify-between w-full">
                     <span>טפסי הסכמה</span>
                     <FileText className="h-4 w-4" />
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className={dropdownItemClasses}>
-                  <Link to="/managed-lists?tab=order_statuses" className="flex items-center justify-between w-full">
-                    <span>סטטוסי הזמנה</span>
-                    <ListOrdered className="h-4 w-4" />
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
