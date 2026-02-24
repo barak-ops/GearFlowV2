@@ -33,11 +33,15 @@ export const Header = () => {
   const { session, loading: sessionLoading } = useSession();
   const { profile, loading: profileLoading } = useProfile();
   const [currentTheme, setCurrentTheme] = useState(headerThemes[0]);
+  const [customTitle, setCustomTitle] = useState<string | null>(null);
 
   useEffect(() => {
     const storedThemeId = localStorage.getItem('headerTheme');
     const theme = headerThemes.find(t => t.id === storedThemeId) || headerThemes[0];
     setCurrentTheme(theme);
+    
+    const storedTitle = localStorage.getItem('appTitle');
+    setCustomTitle(storedTitle);
   }, []);
 
   const handleLogout = async () => {
@@ -59,16 +63,21 @@ export const Header = () => {
     return null; // Don't show header if not logged in
   }
 
+  const isManager = profile?.role === 'manager';
+  const systemName = isManager 
+    ? (customTitle || "מערכת ניהול ציוד") 
+    : "מערכת הזמנת ציוד";
+
   return (
     <header className={`${currentTheme.primary} p-4 flex justify-between items-center shadow-md`}>
       <div className="flex items-center gap-4">
         <Link to="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Home className="h-6 w-6" />
-          <span className="text-lg font-bold">מערכת ניהול ציוד</span>
+          <span className="text-lg font-bold">{systemName}</span>
         </Link>
       </div>
       <nav className="flex items-center gap-6">
-        {profile?.role === 'manager' ? (
+        {isManager ? (
           <>
             <Link to="/equipment" className="flex items-center gap-1 hover:opacity-80 transition-opacity">
               <Package className="h-5 w-5" />
