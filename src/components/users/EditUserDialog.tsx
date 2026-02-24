@@ -28,10 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { useState, useEffect } from "react";
 import { Profile } from "@/hooks/useProfile";
-import { supabase } from "@/integrations/supabase/client";
 import { Pencil } from "lucide-react";
 import { useSession } from "@/contexts/SessionContext";
 
@@ -82,18 +82,11 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
   // Watch for changes in the role field
   const selectedRole = form.watch('role');
 
-  // Reset warehouse_id if role changes from storage_manager
-  useEffect(() => {
-    if (selectedRole !== 'storage_manager') {
-      form.setValue('warehouse_id', "");
-    }
-  }, [selectedRole, form]);
-
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof editUserSchema>) => {
       if (!session) throw new Error("User not authenticated.");
 
-      // Determine the warehouse_id to save
+      // Determine the warehouse_id to save: only save if role is storage_manager
       const warehouseIdToSave = values.role === 'storage_manager' && values.warehouse_id !== "" ? values.warehouse_id : null;
 
       // Update profile data
@@ -253,33 +246,31 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 </FormItem>
               )}
             />
-            {selectedRole === 'storage_manager' && (
-                <FormField
-                control={form.control}
-                name="warehouse_id"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>שיוך למחסן</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || "none"}>
-                        <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="בחר מחסן" />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            <SelectItem value="none">ללא מחסן</SelectItem>
-                            {warehouses?.map((warehouse) => (
-                                <SelectItem key={warehouse.id} value={warehouse.id}>
-                                {warehouse.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+            <FormField
+            control={form.control}
+            name="warehouse_id"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>שיוך למחסן</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value || "none"}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="בחר מחסן" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="none">ללא מחסן</SelectItem>
+                        {warehouses?.map((warehouse) => (
+                            <SelectItem key={warehouse.id} value={warehouse.id}>
+                            {warehouse.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
             )}
+            />
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "מעדכן..." : "שמור שינויים"}
