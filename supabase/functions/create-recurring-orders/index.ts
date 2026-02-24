@@ -39,6 +39,23 @@ serve(async (req) => {
       });
     }
 
+    // Fetch the user's profile to get their warehouse_id
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('warehouse_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error("[create-recurring-orders] Error fetching user profile:", profileError);
+      return new Response(JSON.stringify({ error: 'Error fetching user profile' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const userWarehouseId = profile?.warehouse_id;
+
     const { startDate, endDate, notes, cartItems, isRecurring, recurrenceCount, recurrenceInterval } = await req.json();
 
     const ordersToInsert = [];
@@ -48,6 +65,7 @@ serve(async (req) => {
     for (let i = 0; i < recurrenceCount; i++) {
       ordersToInsert.push({
         user_id: user.id,
+        warehouse_id: userWarehouseId, // Add the user's warehouse_id to the order
         requested_start_date: currentStartDate.toISOString(),
         requested_end_date: currentEndDate.toISOString(),
         notes: notes,

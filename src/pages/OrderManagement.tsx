@@ -20,7 +20,7 @@ interface Order {
   is_recurring: boolean;
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
-  // Added for warehouse information
+  warehouse_id: string | null; // Added warehouse_id to Order interface
   order_items?: { equipment_items: { warehouses: { name: string } | null } | null }[]; // Added for warehouse info
 }
 
@@ -39,19 +39,14 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
       is_recurring,
       recurrence_count,
       recurrence_interval,
+      warehouse_id,
       profiles ( first_name, last_name ),
-      order_items ( equipment_items ( id, warehouses ( name, id ) ) )
+      warehouses ( name )
     `);
   
   if (userWarehouseId && userRole === 'storage_manager') {
     console.log("Filtering for storage_manager with warehouse_id:", userWarehouseId);
-    // For storage managers, filter orders by items in their warehouse
-    // We need to fetch all orders, then filter them client-side based on the warehouse_id of their items.
-    // Supabase RLS should ideally handle this, but for now, we'll do it here.
-    // The RLS policy for 'orders' table already checks for manager role,
-    // but we need to ensure storage managers only see orders with items from their warehouse.
-    // This means we need to fetch all orders that the user is allowed to see (via RLS)
-    // and then filter them further if the user is a storage manager.
+    query = query.eq('warehouse_id', userWarehouseId);
   }
 
   const { data, error } = await query.order("created_at", { ascending: false });
@@ -60,15 +55,6 @@ const fetchAllOrders = async (userWarehouseId: string | null, userRole: string |
     throw new Error(error.message);
   }
   console.log("Fetched orders:", data);
-
-  // Client-side filtering for storage managers
-  if (userWarehouseId && userRole === 'storage_manager') {
-    return (data as Order[]).filter(order => 
-      order.order_items?.some(orderItem => 
-        orderItem.equipment_items?.warehouses?.id === userWarehouseId
-      )
-    );
-  }
 
   return data as Order[];
 };

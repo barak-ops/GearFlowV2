@@ -28,8 +28,8 @@ interface Order {
   is_recurring: boolean;
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
-  // Added for warehouse information
-  order_items?: { equipment_items: { warehouses: { name: string } | null } | null }[];
+  warehouse_id: string | null; // Added warehouse_id
+  warehouses?: { name: string } | null; // Added warehouses relation
 }
 
 interface OrderTableProps {
@@ -107,13 +107,7 @@ export function OrderTable({ orders, showWarehouseColumn = false }: OrderTablePr
             ? `${order.profiles.first_name || ''} ${order.profiles.last_name || ''}`.trim() 
             : 'משתמש לא ידוע';
           
-          // Get unique warehouse names from order items
-          const warehousesInOrder = Array.from(new Set(
-            order.order_items
-              ?.map(oi => oi.equipment_items?.warehouses?.name)
-              .filter(name => name)
-          ));
-          const warehouseDisplay = warehousesInOrder.length > 0 ? warehousesInOrder.join(', ') : 'ללא מחסן';
+          const warehouseDisplay = order.warehouses?.name || 'ללא מחסן';
 
           return (
             <TableRow key={order.id}>

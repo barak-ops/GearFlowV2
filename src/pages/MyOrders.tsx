@@ -31,6 +31,7 @@ interface Order {
   is_recurring: boolean;
   recurrence_count: number | null;
   recurrence_interval: 'day' | 'week' | 'month' | null;
+  warehouse_id: string | null; // Added warehouse_id
 }
 
 const statusTranslations: Record<string, string> = {
@@ -74,6 +75,7 @@ const MyOrders = () => {
         is_recurring,
         recurrence_count,
         recurrence_interval,
+        warehouse_id,
         profiles ( first_name, last_name )
       `)
       .eq("user_id", user.id)
