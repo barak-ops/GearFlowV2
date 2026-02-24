@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { OrderTable } from "@/components/orders/OrderTable";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 interface Profile {
   first_name: string | null;
@@ -22,8 +21,8 @@ interface Order {
   recurrence_interval: 'day' | 'week' | 'month' | null;
 }
 
-const fetchAllOrders = async (userRole: string | undefined, userWarehouseId: string | null | undefined) => {
-  let query = supabase
+const fetchAllOrders = async () => {
+  const { data, error } = await supabase
     .from("orders")
     .select(`
       id,
@@ -38,35 +37,17 @@ const fetchAllOrders = async (userRole: string | undefined, userWarehouseId: str
       profiles ( first_name, last_name )
     `)
     .order("created_at", { ascending: false });
-
-  if (userRole === 'storage_manager' && userWarehouseId) {
-    // For storage managers, filter orders based on equipment in their warehouse
-    query = query.in('id', supabase
-      .from('order_items')
-      .select('order_id')
-      .in('item_id', supabase
-        .from('equipment_items')
-        .select('id')
-        .eq('warehouse_id', userWarehouseId)
-      )
-    );
-  }
-
-  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data as Order[];
 };
 
 const OrderManagement = () => {
-  const { profile, loading: profileLoading } = useProfile();
-
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ["all-orders", profile?.role, profile?.warehouse_id],
-    queryFn: () => fetchAllOrders(profile?.role, profile?.warehouse_id),
-    enabled: !profileLoading,
+    queryKey: ["all-orders"],
+    queryFn: fetchAllOrders,
   });
 
-  if (isLoading || profileLoading) {
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />

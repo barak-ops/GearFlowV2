@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { CategoryFilter } from "./CategoryFilter";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 interface Category {
   id: string;
@@ -25,7 +24,6 @@ interface EquipmentItem {
   categories: { name: string } | null;
   image_url: string | null;
   category_id: string;
-  warehouse_id: string | null; // Added warehouse_id
 }
 
 interface EquipmentSelectorProps {
@@ -34,9 +32,7 @@ interface EquipmentSelectorProps {
     endDate?: Date | null;
 }
 
-const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null, userRole?: string, userWarehouseId?: string | null) => {
-  let query;
-
+const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null) => {
   // If dates are provided, use the RPC to get only available items
   if (startDate && endDate) {
     const { data: availableItems, error: rpcError } = await supabase
@@ -50,7 +46,8 @@ const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null, us
     const ids = availableItems.map((item: any) => item.id);
     if (ids.length === 0) return [];
 
-    query = supabase
+    // Fetch full details for the available IDs to include joins
+    const { data, error } = await supabase
       .from("equipment_items")
       .select(`
         id,
@@ -58,34 +55,28 @@ const fetchEquipment = async (startDate?: Date | null, endDate?: Date | null, us
         status_id,
         image_url,
         category_id,
-        warehouse_id,
         categories ( name ),
         equipment_statuses ( id, name, is_rentable )
       `)
       .in('id', ids);
-  } else {
-    // Default fetch (all items)
-    query = supabase
-      .from("equipment_items")
-      .select(`
-        id,
-        name,
-        status_id,
-        image_url,
-        category_id,
-        warehouse_id,
-        categories ( name ),
-        equipment_statuses ( id, name, is_rentable )
-      `);
+    
+    if (error) throw error;
+    return data as EquipmentItem[];
   }
 
-  // Apply warehouse filter for storage managers
-  if (userRole === 'storage_manager' && userWarehouseId) {
-    query = query.eq('warehouse_id', userWarehouseId);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
+  // Default fetch (all items)
+  const { data, error } = await supabase
+    .from("equipment_items")
+    .select(`
+      id,
+      name,
+      status_id,
+      image_url,
+      category_id,
+      categories ( name ),
+      equipment_statuses ( id, name, is_rentable )
+    `);
+  if (error) throw new Error(error.message);
   return data as EquipmentItem[];
 };
 
@@ -96,12 +87,10 @@ const fetchCategories = async () => {
 };
 
 export function EquipmentSelector({ disabled = false, startDate, endDate }: EquipmentSelectorProps) {
-  const { profile, loading: profileLoading } = useProfile();
-
   const { data: equipment, isLoading: isLoadingEquipment } = useQuery({
-    queryKey: ["equipment", startDate?.toISOString(), endDate?.toISOString(), profile?.role, profile?.warehouse_id],
-    queryFn: () => fetchEquipment(startDate, endDate, profile?.role, profile?.warehouse_id),
-    enabled: !disabled || (!!startDate && !!endDate) && !profileLoading
+    queryKey: ["equipment", startDate?.toISOString(), endDate?.toISOString()],
+    queryFn: () => fetchEquipment(startDate, endDate),
+    enabled: !disabled || (!!startDate && !!endDate)
   });
 
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
@@ -111,7 +100,7 @@ export function EquipmentSelector({ disabled = false, startDate, endDate }: Equi
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  if (isLoadingEquipment || isLoadingCategories || profileLoading) {
+  if (isLoadingEquipment || isLoadingCategories) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />

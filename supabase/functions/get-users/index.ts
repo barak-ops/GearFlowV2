@@ -31,7 +31,7 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify the user's role and warehouse_id
+    // Verify the user is a manager
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
       console.error("[get-users] Auth error", userError);
@@ -43,38 +43,13 @@ serve(async (req) => {
 
     const { data: profile, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('role, warehouse_id')
+      .select('role')
       .eq('id', user.id)
       .single();
 
-    if (profileError || (!profile?.role)) {
-      console.error("[get-users] Profile fetch error or role missing", profileError);
-      return new Response(JSON.stringify({ error: 'Forbidden: Profile not found or role missing' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    let profilesQuery = adminClient
-      .from('profiles')
-      .select('*, warehouses(name)');
-
-    if (profile.role === 'manager') {
-      // Managers can see all users
-      // No additional filters needed
-    } else if (profile.role === 'storage_manager') {
-      // Storage managers can only see users associated with their warehouse
-      if (!profile.warehouse_id) {
-        console.warn("[get-users] Storage manager has no assigned warehouse_id.");
-        return new Response(JSON.stringify({ error: 'Forbidden: Storage manager not assigned to a warehouse' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      profilesQuery = profilesQuery.eq('warehouse_id', profile.warehouse_id);
-    } else {
-      console.error("[get-users] Forbidden access: User is not manager or storage_manager", profile.role);
-      return new Response(JSON.stringify({ error: 'Forbidden: Insufficient permissions' }), {
+    if (profileError || profile?.role !== 'manager') {
+      console.error("[get-users] Forbidden access", profile?.role);
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -86,8 +61,10 @@ serve(async (req) => {
     const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers();
     if (authError) throw authError;
 
-    // Fetch profiles with warehouse names, applying role-based filtering
-    const { data: profiles, error: profilesError } = await profilesQuery;
+    // Fetch profiles with warehouse names
+    const { data: profiles, error: profilesError } = await adminClient
+      .from('profiles')
+      .select('*, warehouses(name)');
     
     if (profilesError) throw profilesError;
 

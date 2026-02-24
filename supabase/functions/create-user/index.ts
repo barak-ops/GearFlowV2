@@ -15,14 +15,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { first_name, last_name, email, password, role, warehouse_id } = await req.json(); // Added role and warehouse_id
+    const { first_name, last_name, email, password, warehouse_id } = await req.json();
 
     // Create user in Auth
     const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { first_name, last_name, role, warehouse_id } // Pass role and warehouse_id to user_metadata
+      user_metadata: { first_name, last_name }
     });
 
     if (authError) throw authError;
@@ -33,7 +33,6 @@ serve(async (req) => {
       .update({ 
         first_name, 
         last_name, 
-        role: role || 'student', // Set role, default to 'student'
         warehouse_id: warehouse_id === "none" || !warehouse_id ? null : warehouse_id 
       })
       .eq('id', authData.user.id);

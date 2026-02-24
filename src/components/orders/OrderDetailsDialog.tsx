@@ -29,7 +29,6 @@ import { showSuccess, showError } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 const GENERATE_RECEIPT_PDF_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/generate-receipt-pdf";
 
@@ -39,7 +38,6 @@ interface EquipmentItemDetail {
     serial_number: string | null;
     image_url: string | null;
     categories: { name: string } | null;
-    warehouse_id: string | null; // Added warehouse_id
 }
 
 interface OrderItemDetail {
@@ -137,8 +135,7 @@ const fetchOrderDetails = async (orderId: string): Promise<OrderDetail> => {
                     name,
                     serial_number,
                     image_url,
-                    categories ( name ),
-                    warehouse_id
+                    categories ( name )
                 )
             ),
             consent_form_id,
@@ -190,7 +187,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
     const [consentsReadStatus, setConsentsReadStatus] = useState<Record<string, boolean>>({});
     const signatureCanvasRef = useRef<SignatureCanvas | null>(null);
     const { user, session } = useSession();
-    const { profile } = useProfile(); // Get current user profile
     const queryClient = useQueryClient();
 
     const { data: order, isLoading: isLoadingOrder, error: orderError, refetch: refetchOrder } = useQuery({
@@ -455,16 +451,6 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
         const allRequiredConsentsRead = activeConsentTemplates.every(template => consentsReadStatus[template.id]);
         const canSignReceipt = allItemsReceived && !isCustomerSigned && allRequiredConsentsRead;
 
-        const isStorageManager = profile?.role === 'storage_manager';
-        const currentUserWarehouseId = profile?.warehouse_id;
-
-        const filteredItems = items.filter(item => {
-            if (isStorageManager && currentUserWarehouseId) {
-                return item.warehouse_id === currentUserWarehouseId;
-            }
-            return true;
-        });
-
         return (
             <div className="space-y-6" dir="rtl">
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -511,7 +497,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                 <div>
                     <h4 className="font-semibold mb-3 flex items-center gap-2">
                         <Package className="h-5 w-5 text-primary" />
-                        פריטי ציוד ({filteredItems.length})
+                        פריטי ציוד ({items.length})
                     </h4>
                     <div className="max-h-60 overflow-y-auto border rounded-lg">
                         <Table>
@@ -524,7 +510,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredItems.map((item, index) => (
+                                {items.map((item, index) => (
                                     <TableRow key={index}>
                                         <TableCell className="font-medium flex items-center gap-2">
                                             {item.image_url && <img src={item.image_url} alt={item.name} className="w-8 h-8 object-cover rounded-sm" />}
@@ -544,7 +530,7 @@ export function OrderDetailsDialog({ orderId, userName }: OrderDetailsDialogProp
                             </TableBody>
                         </Table>
                     </div>
-                    {filteredItems.length === 0 && <p className="text-center text-muted-foreground p-4">לא נמצאו פריטים להזמנה זו במחסן שלך.</p>}
+                    {items.length === 0 && <p className="text-center text-muted-foreground p-4">לא נמצאו פריטים להזמנה זו.</p>}
                 </div>
 
                 <Separator />

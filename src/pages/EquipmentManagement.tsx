@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 export interface Category {
     id: string;
@@ -57,8 +56,8 @@ interface EquipmentItem {
   invoice_number: string | null;
 }
 
-const fetchEquipment = async (userRole: string | undefined, userWarehouseId: string | null | undefined) => {
-  let query = supabase
+const fetchEquipment = async () => {
+  const { data, error } = await supabase
     .from("equipment_items")
     .select(`
       id,
@@ -91,12 +90,6 @@ const fetchEquipment = async (userRole: string | undefined, userWarehouseId: str
       equipment_statuses ( id, name, is_rentable ),
       warehouses ( name )
     `);
-
-  if (userRole === 'storage_manager' && userWarehouseId) {
-    query = query.eq('warehouse_id', userWarehouseId);
-  }
-
-  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data as EquipmentItem[];
 };
@@ -108,12 +101,9 @@ const fetchCategories = async () => {
 }
 
 const EquipmentManagement = () => {
-  const { profile, loading: profileLoading } = useProfile();
-
   const { data: equipment, isLoading: isLoadingEquipment, error: equipmentError } = useQuery({
-    queryKey: ["equipment", profile?.role, profile?.warehouse_id],
-    queryFn: () => fetchEquipment(profile?.role, profile?.warehouse_id),
-    enabled: !profileLoading,
+    queryKey: ["equipment"],
+    queryFn: fetchEquipment,
   });
 
   const { data: categories, isLoading: isLoadingCategories, error: categoriesError } = useQuery({
@@ -149,7 +139,7 @@ const EquipmentManagement = () => {
   }, [equipment, searchTerm, selectedCategory]);
 
 
-  if (isLoadingEquipment || isLoadingCategories || profileLoading) {
+  if (isLoadingEquipment || isLoadingCategories) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />
@@ -195,7 +185,7 @@ const EquipmentManagement = () => {
         </Select>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <div className="bg-white rounded-lg shadow">
         {filteredEquipment.length > 0 ? (
             <EquipmentTable equipment={filteredEquipment} categories={categories} />
         ) : (

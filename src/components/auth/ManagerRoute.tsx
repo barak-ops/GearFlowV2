@@ -13,9 +13,8 @@ const ManagerRoute = () => {
     );
   }
 
-  // Allow both 'manager' and 'storage_manager' roles to access manager routes
-  if (profile?.role !== 'manager' && profile?.role !== 'storage_manager') {
-    // Redirect them to the dashboard if they are not a manager or storage manager
+  if (profile?.role !== 'manager') {
+    // Redirect them to the dashboard if they are not a manager
     return <Navigate to="/dashboard" replace />;
   }
 

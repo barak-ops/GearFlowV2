@@ -38,7 +38,6 @@ import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 const equipmentSchema = z.object({
   name: z.string().min(2, "שם הפריט חייב להכיל לפחות 2 תווים."),
@@ -141,12 +140,8 @@ const fetchManufacturers = async () => {
     if (error) throw new Error(error.message);
     return data as ManagedListItem[];
 };
-const fetchWarehouses = async (userRole: string | undefined, userWarehouseId: string | null | undefined) => {
-    let query = supabase.from("warehouses").select('id, name').order("name", { ascending: true });
-    if (userRole === 'storage_manager' && userWarehouseId) {
-        query = query.eq('id', userWarehouseId);
-    }
-    const { data, error } = await query;
+const fetchWarehouses = async () => {
+    const { data, error } = await supabase.from("warehouses").select('id, name').order("name", { ascending: true });
     if (error) throw new Error(error.message);
     return data as ManagedListItem[];
 };
@@ -161,7 +156,6 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
   const queryClient = useQueryClient();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(item.image_url);
-  const { profile } = useProfile(); // Get current user profile
 
   const { data: itemTypes } = useQuery({ queryKey: ["item_types"], queryFn: fetchItemTypes });
   const { data: suppliers } = useQuery({ queryKey: ["suppliers"], queryFn: fetchSuppliers });
@@ -169,10 +163,7 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
   const { data: sets } = useQuery({ queryKey: ["sets"], queryFn: fetchSets });
   const { data: insuranceTypes } = useQuery({ queryKey: ["insurance_types"], queryFn: fetchInsuranceTypes });
   const { data: manufacturers } = useQuery({ queryKey: ["manufacturers"], queryFn: fetchManufacturers });
-  const { data: warehouses } = useQuery({ 
-    queryKey: ["warehouses", profile?.role, profile?.warehouse_id], 
-    queryFn: () => fetchWarehouses(profile?.role, profile?.warehouse_id) 
-  });
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: fetchWarehouses });
   const { data: allStatuses } = useQuery({ queryKey: ["equipment_statuses"], queryFn: fetchAllStatuses });
 
   const form = useForm<z.infer<typeof equipmentSchema>>({
@@ -287,8 +278,6 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
     mutation.mutate(values);
   }
 
-  const isStorageManager = profile?.role === 'storage_manager';
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -348,11 +337,7 @@ export function EditEquipmentDialog({ item, categories }: EditEquipmentDialogPro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>מחסן</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                    disabled={isStorageManager} // Disable if storage manager
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="בחר מחסן" />

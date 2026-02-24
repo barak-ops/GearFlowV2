@@ -4,7 +4,6 @@ import { UserTable } from "@/components/users/UserTable";
 import { Profile } from "@/hooks/useProfile";
 import { AddUserDialog } from "@/components/users/AddUserDialog";
 import { useSession } from "@/contexts/SessionContext";
-import { supabase } from "@/integrations/supabase/client"; // Import supabase
 
 const GET_USERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/get-users";
 
@@ -34,23 +33,7 @@ const fetchAllProfiles = async (accessToken: string) => {
     throw new Error(errorMessage);
   }
   
-  const users = await response.json() as UserProfile[];
-
-  // Fetch warehouse names for each user
-  const usersWithWarehouses = await Promise.all(users.map(async (user) => {
-    if (user.warehouse_id) {
-      const { data: warehouseData, error: warehouseError } = await supabase
-        .from('warehouses')
-        .select('name')
-        .eq('id', user.warehouse_id)
-        .single();
-      if (warehouseError) console.error("Error fetching warehouse for user:", warehouseError);
-      return { ...user, warehouses: warehouseData || null };
-    }
-    return { ...user, warehouses: null };
-  }));
-
-  return usersWithWarehouses;
+  return await response.json() as UserProfile[];
 };
 
 const UserManagement = () => {

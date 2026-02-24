@@ -38,7 +38,6 @@ import { format } from "date-fns";
 import { he } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { useProfile } from "@/hooks/useProfile"; // Import useProfile
 
 const equipmentSchema = z.object({
   name: z.string().min(2, "שם הפריט חייב להכיל לפחות 2 תווים."),
@@ -115,12 +114,8 @@ const fetchManufacturers = async () => {
     if (error) throw new Error(error.message);
     return data as ManagedListItem[];
 };
-const fetchWarehouses = async (userRole: string | undefined, userWarehouseId: string | null | undefined) => {
-    let query = supabase.from("warehouses").select('id, name').order("name", { ascending: true });
-    if (userRole === 'storage_manager' && userWarehouseId) {
-        query = query.eq('id', userWarehouseId);
-    }
-    const { data, error } = await query;
+const fetchWarehouses = async () => {
+    const { data, error } = await supabase.from("warehouses").select('id, name').order("name", { ascending: true });
     if (error) throw new Error(error.message);
     return data as ManagedListItem[];
 };
@@ -136,7 +131,6 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
   const queryClient = useQueryClient();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const { profile } = useProfile(); // Get current user profile
 
   const { data: itemTypes } = useQuery({ queryKey: ["item_types"], queryFn: fetchItemTypes });
   const { data: suppliers } = useQuery({ queryKey: ["suppliers"], queryFn: fetchSuppliers });
@@ -144,10 +138,7 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
   const { data: sets } = useQuery({ queryKey: ["sets"], queryFn: fetchSets });
   const { data: insuranceTypes } = useQuery({ queryKey: ["insurance_types"], queryFn: fetchInsuranceTypes });
   const { data: manufacturers } = useQuery({ queryKey: ["manufacturers"], queryFn: fetchManufacturers });
-  const { data: warehouses } = useQuery({ 
-    queryKey: ["warehouses", profile?.role, profile?.warehouse_id], 
-    queryFn: () => fetchWarehouses(profile?.role, profile?.warehouse_id) 
-  });
+  const { data: warehouses } = useQuery({ queryKey: ["warehouses"], queryFn: fetchWarehouses });
   const { data: allStatuses } = useQuery({ queryKey: ["equipment_statuses"], queryFn: fetchAllStatuses });
 
   const defaultStatusId = allStatuses?.find(s => s.name === 'זמין')?.id || "";
@@ -170,7 +161,7 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
       set_id: "",
       insurance_type_id: "",
       manufacturer_id: "",
-      warehouse_id: profile?.role === 'storage_manager' && profile.warehouse_id ? profile.warehouse_id : "", // Pre-fill for storage manager
+      warehouse_id: "",
       price: null,
       invoice_number: "",
       status_id: defaultStatusId,
@@ -182,11 +173,7 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
     if (defaultStatusId && form.getValues('status_id') === "") {
         form.setValue('status_id', defaultStatusId);
     }
-    // Set warehouse_id if current user is a storage manager
-    if (profile?.role === 'storage_manager' && profile.warehouse_id) {
-        form.setValue('warehouse_id', profile.warehouse_id);
-    }
-  }, [defaultStatusId, form, profile]);
+  }, [defaultStatusId, form]);
 
 
   const uploadImage = async (file: File) => {
@@ -263,8 +250,6 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
     mutation.mutate(values);
   }
 
-  const isStorageManager = profile?.role === 'storage_manager';
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -322,11 +307,7 @@ export function AddEquipmentDialog({ categories }: AddEquipmentDialogProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>מחסן</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                    disabled={isStorageManager} // Disable if storage manager
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="בחר מחסן" />

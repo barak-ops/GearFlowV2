@@ -43,7 +43,6 @@ const editUserSchema = z.object({
   last_name: z.string().min(2, "שם משפחה חובה."),
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים.").optional().or(z.literal('')),
-  role: z.enum(['student', 'manager', 'storage_manager']), // Added 'storage_manager'
   warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
 });
 
@@ -60,16 +59,7 @@ const fetchWarehouses = async () => {
 export function EditUserDialog({ user }: EditUserDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
-  const { session, user: currentUser } = useSession(); // Renamed user to currentUser to avoid conflict
-  const { data: currentUserProfile } = useQuery<Profile>({
-    queryKey: ['profile', currentUser?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', currentUser!.id).single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!currentUser,
-  });
+  const { session } = useSession();
 
   const { data: warehouses } = useQuery({
     queryKey: ["warehouses"],
@@ -83,7 +73,6 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       last_name: user.last_name || "",
       email: user.email || "",
       password: "",
-      role: user.role, // Set default role from user prop
       warehouse_id: user.warehouse_id || "",
     },
   });
@@ -98,7 +87,6 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         .update({ 
             first_name: values.first_name, 
             last_name: values.last_name,
-            role: values.role, // Update role
             warehouse_id: values.warehouse_id === "none" || values.warehouse_id === "" ? null : values.warehouse_id,
             updated_at: new Date().toISOString(),
         })
@@ -152,14 +140,11 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         last_name: user.last_name || "",
         email: user.email || "",
         password: "",
-        role: user.role,
         warehouse_id: user.warehouse_id || "",
       });
     }
     setIsOpen(open);
   };
-
-  const isManager = currentUserProfile?.role === 'manager';
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -229,57 +214,31 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 </FormItem>
               )}
             />
-            {isManager && ( // Only managers can set roles and warehouses
-              <>
-                <FormField
-                  control={form.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>תפקיד</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="בחר תפקיד" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="student">סטודנט</SelectItem>
-                          <SelectItem value="manager">מנהל</SelectItem>
-                          <SelectItem value="storage_manager">מנהל מחסן</SelectItem> {/* New role */}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="warehouse_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>שיוך למחסן</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="בחר מחסן (אופציונלי)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">ללא מחסן</SelectItem>
-                          {warehouses?.map((warehouse) => (
-                            <SelectItem key={warehouse.id} value={warehouse.id}>
-                              {warehouse.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
+            <FormField
+              control={form.control}
+              name="warehouse_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>שיוך למחסן</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="בחר מחסן (אופציונלי)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">ללא מחסן</SelectItem>
+                      {warehouses?.map((warehouse) => (
+                        <SelectItem key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "מעדכן..." : "שמור שינויים"}
