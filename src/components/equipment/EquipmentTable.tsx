@@ -29,16 +29,16 @@ interface EquipmentStatus {
 interface EquipmentItem {
   id: string;
   name: string;
+  description: string | null;
+  serial_number: string | null;
+  category_id: string;
+  image_url: string | null;
   status_id: string;
   equipment_status: 'available' | 'faulted';
   warehouse_id: string | null;
   equipment_statuses: EquipmentStatus | null;
   categories: { name: string } | null;
   warehouses: { name: string } | null;
-  description: string | null;
-  serial_number: string | null;
-  category_id: string;
-  image_url: string | null;
   barcode: string | null;
   sku: string | null;
   item_type_id: string | null;
@@ -116,6 +116,7 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
           <TableHead>תמונה</TableHead>
           <TableHead>שם הפריט</TableHead>
           <TableHead>קטגוריה</TableHead>
+          <TableHead>מחסן</TableHead> {/* New column for Warehouse */}
           <TableHead>מצב</TableHead>
           <TableHead>מק"ט</TableHead>
           <TableHead>סטטוס</TableHead>
@@ -140,6 +141,7 @@ export function EquipmentTable({ equipment, categories }: EquipmentTableProps) {
                 </TableCell>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell>{item.categories?.name || 'ללא קטגוריה'}</TableCell>
+                <TableCell>{item.warehouses?.name || 'ללא מחסן'}</TableCell> {/* Display warehouse name */}
                 <TableCell>
                     <Badge variant={item.equipment_status === 'available' ? 'default' : 'destructive'}>
                         {item.equipment_status === 'available' ? 'Available' : 'Faulted'}
