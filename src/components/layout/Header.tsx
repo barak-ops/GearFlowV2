@@ -152,7 +152,7 @@ export const Header = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className={dropdownItemClasses}>
                   <Link to="/managed-lists" className="flex items-center justify-between w-full">
-                    <span>רשימות מנוהלות</span>
+                    <span>רשימות מערכת</span>
                     <ListChecks className="h-4 w-4" />
                   </Link>
                 </DropdownMenuItem>
