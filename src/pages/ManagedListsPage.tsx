@@ -32,6 +32,19 @@ export interface EquipmentStatus {
     is_rentable: boolean;
 }
 
+// Define the order status type from the database schema
+type OrderStatus = 'pending' | 'approved' | 'rejected' | 'checked_out' | 'returned' | 'cancelled';
+
+// Translations for order statuses
+const orderStatusTranslations: Record<OrderStatus, string> = {
+    pending: 'בקשה',
+    approved: 'מאושר',
+    rejected: 'נדחה',
+    checked_out: 'מושאל',
+    returned: 'הוחזר',
+    cancelled: 'בוטל',
+};
+
 const fetchManagedList = async (listName: string) => {
   const { data, error } = await supabase.from(listName).select('id, name').order("name", { ascending: true });
   if (error) throw new Error(error.message);
@@ -117,6 +130,31 @@ const StatusTable = ({ statuses }: { statuses: EquipmentStatus[] | undefined }) 
     );
 };
 
+// Component for Order Status Table
+const OrderStatusTable = () => {
+    // The order statuses are hardcoded as they are enum values in the DB
+    const statuses: OrderStatus[] = ['pending', 'approved', 'rejected', 'checked_out', 'returned', 'cancelled'];
+
+    return (
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>שם הסטטוס (אנגלית)</TableHead>
+                    <TableHead>שם הסטטוס (עברית)</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {statuses.map((status) => (
+                    <TableRow key={status}>
+                        <TableCell className="font-medium">{status}</TableCell>
+                        <TableCell>{orderStatusTranslations[status]}</TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
+    );
+};
+
 
 const ManagedListsPage = () => {
   const { data: categories, isLoading: isLoadingCategories } = useQuery({
@@ -171,6 +209,17 @@ const ManagedListsPage = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         
+        {/* Order Statuses Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>סטטוסי הזמנה</CardTitle>
+            <CardDescription>סטטוסים קבועים מראש עבור הזמנות.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OrderStatusTable />
+          </CardContent>
+        </Card>
+
         {/* Equipment Statuses Card */}
         <Card className="md:col-span-2">
           <CardHeader className="flex flex-row justify-between items-center">
