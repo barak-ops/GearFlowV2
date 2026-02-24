@@ -87,9 +87,12 @@ export const Header = () => {
   }
 
   const isManager = profile?.role === 'manager';
-  const systemName = isManager 
+  const baseSystemName = isManager 
     ? (customTitle || "מערכת ניהול ציוד") 
     : "מערכת הזמנת ציוד";
+  
+  const warehouseName = profile?.warehouses?.name;
+  const systemName = warehouseName ? `${baseSystemName} - ${warehouseName}` : baseSystemName;
   
   const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : session.user.email;
 
