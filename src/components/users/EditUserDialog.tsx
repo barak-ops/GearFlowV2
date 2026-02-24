@@ -44,7 +44,7 @@ const editUserSchema = z.object({
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים.").optional().or(z.literal('')),
   role: z.enum(['student', 'manager', 'storage_manager']),
-  warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
+  warehouse_id: z.string().optional(), // Changed to optional string
 });
 
 interface EditUserDialogProps {
@@ -75,7 +75,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       email: user.email || "",
       password: "",
       role: user.role,
-      warehouse_id: user.warehouse_id || "",
+      warehouse_id: user.warehouse_id || "none", // Default to "none" for the select component
     },
   });
 
@@ -87,7 +87,8 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       if (!session) throw new Error("User not authenticated.");
 
       // Determine the warehouse_id to save: only save if role is storage_manager
-      const warehouseIdToSave = values.role === 'storage_manager' && values.warehouse_id !== "" ? values.warehouse_id : null;
+      // Convert "none" to null for Supabase
+      const warehouseIdToSave = (values.role === 'storage_manager' || values.role === 'student') && values.warehouse_id !== "none" ? values.warehouse_id : null;
 
       // Update profile data
       const { error: profileError } = await supabase
@@ -150,7 +151,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         email: user.email || "",
         password: "",
         role: user.role,
-        warehouse_id: user.warehouse_id || "",
+        warehouse_id: user.warehouse_id || "none",
       });
     }
     setIsOpen(open);
@@ -252,7 +253,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
             render={({ field }) => (
                 <FormItem>
                 <FormLabel>שיוך למחסן</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || "none"}>
+                <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                     <SelectTrigger>
                         <SelectValue placeholder="בחר מחסן" />

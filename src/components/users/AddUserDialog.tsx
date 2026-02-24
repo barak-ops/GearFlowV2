@@ -41,7 +41,7 @@ const userSchema = z.object({
   email: z.string().email("כתובת אימייל לא תקינה."),
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים."),
   role: z.enum(['student', 'manager', 'storage_manager']), // Added storage_manager
-  warehouse_id: z.string().uuid("יש לבחור מחסן.").optional().or(z.literal('')),
+  warehouse_id: z.string().optional(), // Changed to optional string
 });
 
 const fetchWarehouses = async () => {
@@ -68,7 +68,7 @@ export function AddUserDialog() {
       email: "",
       password: "",
       role: "student", // Default role
-      warehouse_id: "",
+      warehouse_id: "none", // Default to "none" for the select component
     },
   });
 
@@ -79,7 +79,8 @@ export function AddUserDialog() {
       if (!session) throw new Error("User not authenticated.");
 
       // Determine the warehouse_id to save: only save if role is storage_manager or student
-      const warehouseIdToSave = (values.role === 'storage_manager' || values.role === 'student') && values.warehouse_id !== "" ? values.warehouse_id : null;
+      // Convert "none" to null for Supabase
+      const warehouseIdToSave = (values.role === 'storage_manager' || values.role === 'student') && values.warehouse_id !== "none" ? values.warehouse_id : null;
 
       const response = await fetch(CREATE_USER_FUNCTION_URL, {
         method: "POST",
@@ -210,14 +211,14 @@ export function AddUserDialog() {
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>שיוך למחסן</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="בחר מחסן" />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        <SelectItem value="">ללא מחסן</SelectItem> {/* Option for no warehouse */}
+                        <SelectItem value="none">ללא מחסן</SelectItem> {/* Option for no warehouse */}
                         {warehouses?.map((warehouse) => (
                             <SelectItem key={warehouse.id} value={warehouse.id}>
                             {warehouse.name}
