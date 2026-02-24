@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/contexts/SessionContext';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
+import { NotificationBell } from './NotificationBell';
 import { 
   Loader2, 
   LogOut, 
@@ -184,25 +185,29 @@ export const Header = () => {
           </>
         )}
 
-        <DropdownMenu dir="rtl">
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className={`flex items-center gap-2 text-current p-2 h-auto ${hoverClasses}`}>
-              <div className="bg-white/20 p-1 rounded-full">
-                <UserIcon className="h-5 w-5" />
-              </div>
-              <span className="font-medium hidden sm:inline-block">{userName}</span>
-              <ChevronDown className="h-4 w-4 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-right">החשבון שלי</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className={`flex items-center justify-between text-red-600 focus:text-[#d9d983] cursor-pointer`} onClick={handleLogout}>
-              <span>התנתקות</span>
-              <LogOut className="h-4 w-4" />
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          
+          <DropdownMenu dir="rtl">
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className={`flex items-center gap-2 text-current p-2 h-auto ${hoverClasses}`}>
+                <div className="bg-white/20 p-1 rounded-full">
+                  <UserIcon className="h-5 w-5" />
+                </div>
+                <span className="font-medium hidden sm:inline-block">{userName}</span>
+                <ChevronDown className="h-4 w-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="text-right">החשבון שלי</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className={`flex items-center justify-between text-red-600 focus:text-[#d9d983] cursor-pointer`} onClick={handleLogout}>
+                <span>התנתקות</span>
+                <LogOut className="h-4 w-4" />
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </nav>
     </header>
   );
