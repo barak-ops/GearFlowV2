@@ -1,20 +1,29 @@
 import React, { useState } from 'react';
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
+import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Edit, XCircle, CheckCircle } from "lucide-react";
+import { Loader2, Edit, XCircle, CheckCircle, Plus } from "lucide-react";
 import { OperatingHoursDialog } from './OperatingHoursDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from '@/lib/utils';
 
-interface OperatingHours {
+interface TimeSlot {
   id: string;
   warehouse_id: string;
   day_of_week: number;
-  open_time: string | null;
-  close_time: string | null;
+  slot_start_time: string;
+  slot_end_time: string;
   is_closed: boolean;
 }
 
@@ -23,51 +32,52 @@ interface OperatingHoursCalendarProps {
 }
 
 const dayNames = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+const timeSlots = Array.from({ length: (17 - 9) * 2 }, (_, i) => {
+  const hour = 9 + Math.floor(i / 2);
+  const minute = (i % 2) * 30;
+  const start = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  const endHour = hour + Math.floor((minute + 30) / 60);
+  const endMinute = (minute + 30) % 60;
+  const end = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+  return { start, end };
+});
 
-const fetchOperatingHours = async (warehouseId: string) => {
+const fetchTimeSlots = async (warehouseId: string) => {
   const { data, error } = await supabase
-    .from("warehouse_operating_hours")
+    .from("warehouse_time_slots")
     .select("*")
     .eq("warehouse_id", warehouseId);
   if (error) throw error;
-  return data as OperatingHours[];
+  return data as TimeSlot[];
 };
 
 export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarProps) {
-  const { data: operatingHours, isLoading, error } = useQuery({
-    queryKey: ["operating_hours", warehouseId],
-    queryFn: () => fetchOperatingHours(warehouseId),
+  const { data: fetchedTimeSlots, isLoading, error } = useQuery({
+    queryKey: ["warehouse_time_slots", warehouseId],
+    queryFn: () => fetchTimeSlots(warehouseId),
     enabled: !!warehouseId,
   });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState<number | null>(null);
-  const [initialDialogHours, setInitialDialogHours] = useState<OperatingHours | null>(null);
-  const [isWeeklyDialog, setIsWeeklyDialog] = useState(false);
+  const [initialDialogSlot, setInitialDialogSlot] = useState<TimeSlot | null>(null);
+  const [selectedStartTime, setSelectedStartTime] = useState<string | null>(null);
+  const [selectedEndTime, setSelectedEndTime] = useState<string | null>(null);
 
-  const today = new Date();
-  const startOfCurrentWeek = startOfWeek(today, { locale: he });
-
-  const days = Array.from({ length: 7 }, (_, i) => addDays(startOfCurrentWeek, i));
-
-  const handleOpenDialog = (dayOfWeek: number, isWeekly: boolean = false) => {
+  const handleOpenDialog = (dayOfWeek: number, startTime: string, endTime: string, existingSlot: TimeSlot | null = null) => {
     setSelectedDayOfWeek(dayOfWeek);
-    setIsWeeklyDialog(isWeekly);
-    if (isWeekly) {
-        // For weekly, we need to find a representative day (e.g., Monday) or use default
-        const defaultWeeklyHours = operatingHours?.find(oh => oh.day_of_week === 1); // Assuming Monday as representative
-        setInitialDialogHours(defaultWeeklyHours || null);
-    } else {
-        setInitialDialogHours(operatingHours?.find(oh => oh.day_of_week === dayOfWeek) || null);
-    }
+    setSelectedStartTime(startTime);
+    setSelectedEndTime(endTime);
+    setInitialDialogSlot(existingSlot);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setSelectedDayOfWeek(null);
-    setInitialDialogHours(null);
-    setIsWeeklyDialog(false);
+    setSelectedStartTime(null);
+    setSelectedEndTime(null);
+    setInitialDialogSlot(null);
   };
 
   if (isLoading) {
@@ -83,99 +93,89 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
         <XCircle className="h-4 w-4" />
         <AlertTitle>שגיאה</AlertTitle>
         <AlertDescription>
-            שגיאה בטעינת שעות הפתיחה: {error.message}
+            שגיאה בטעינת משבצות הזמן: {error.message}
         </AlertDescription>
     </Alert>;
   }
 
-  const getHoursForDay = (dayOfWeek: number) => {
-    const specificDayHours = operatingHours?.find(oh => oh.day_of_week === dayOfWeek);
-    if (specificDayHours) {
-        return specificDayHours;
-    }
-    // If no specific day hours, try to find weekly hours (for Sunday-Thursday)
-    if (dayOfWeek >= 0 && dayOfWeek <= 4) {
-        // This logic is a bit tricky. The weekly setting should only apply if there's no specific override.
-        // The dialog handles the override logic on save. Here we just display what's saved.
-        // For display, we prioritize specific day settings. If none, we don't show "weekly" hours here.
-        // The "weekly" button will allow setting for all days without specific overrides.
-    }
-    return null;
+  const getSlotStatus = (dayOfWeek: number, startTime: string, endTime: string) => {
+    const slot = fetchedTimeSlots?.find(
+      s => s.day_of_week === dayOfWeek && s.slot_start_time === startTime && s.slot_end_time === endTime
+    );
+    return slot;
   };
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-8 gap-4">
-        {/* Weekly Column */}
-        <Card className="flex flex-col items-center justify-between p-4 text-center bg-blue-50 border-blue-200">
-          <CardHeader className="p-0 pb-2">
-            <CardTitle className="text-lg">שבועי (א'-ה')</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 flex-grow flex flex-col justify-center items-center">
-            <p className="text-sm text-muted-foreground mb-2">הגדר שעות לכל השבוע</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleOpenDialog(0, true)} // Day 0 is Sunday, but this is for weekly
-            >
-              <Edit className="ml-2 h-4 w-4" />
-              ערוך
-            </Button>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>משבצות זמן למחסן</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table className="min-w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px] sticky right-0 bg-background z-10">שעה</TableHead>
+                  {dayNames.map((dayName, index) => (
+                    <TableHead key={index} className="text-center">{dayName}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {timeSlots.map((slot, slotIndex) => (
+                  <TableRow key={slotIndex}>
+                    <TableCell className="font-medium w-[80px] sticky right-0 bg-background z-10">{slot.start} - {slot.end}</TableCell>
+                    {dayNames.map((dayName, dayIndex) => {
+                      const dayOfWeek = dayIndex;
+                      const currentSlot = getSlotStatus(dayOfWeek, slot.start, slot.end);
+                      const isSaturday = dayOfWeek === 6;
 
-        {/* Daily Columns */}
-        {days.map((day, index) => {
-          const dayOfWeek = index; // 0 for Sunday, 6 for Saturday
-          const hours = operatingHours?.find(oh => oh.day_of_week === dayOfWeek); // Directly use operatingHours
-          const isSaturday = dayOfWeek === 6;
+                      return (
+                        <TableCell key={dayIndex} className="text-center p-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "w-full h-10 flex items-center justify-center",
+                              currentSlot?.is_closed && !isSaturday ? "bg-red-100 hover:bg-red-200 text-red-700 border-red-300" : "",
+                              !currentSlot?.is_closed && currentSlot ? "bg-green-100 hover:bg-green-200 text-green-700 border-green-300" : "",
+                              isSaturday ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""
+                            )}
+                            onClick={() => handleOpenDialog(dayOfWeek, slot.start, slot.end, currentSlot)}
+                            disabled={isSaturday}
+                          >
+                            {isSaturday ? (
+                              <XCircle className="h-4 w-4" />
+                            ) : currentSlot?.is_closed ? (
+                              <XCircle className="h-4 w-4 ml-1" />
+                            ) : currentSlot ? (
+                              <CheckCircle className="h-4 w-4 ml-1" />
+                            ) : (
+                              <Plus className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="sr-only">{currentSlot?.is_closed ? "סגור" : currentSlot ? "פתוח" : "הוסף"}</span>
+                          </Button>
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-          return (
-            <Card 
-              key={index} 
-              className={`flex flex-col items-center justify-between p-4 text-center ${isSaturday ? 'bg-gray-100 text-gray-500' : ''}`}
-            >
-              <CardHeader className="p-0 pb-2">
-                <CardTitle className="text-lg">{dayNames[dayOfWeek]}</CardTitle>
-                <p className="text-sm text-muted-foreground">{format(day, "dd/MM", { locale: he })}</p>
-              </CardHeader>
-              <CardContent className="p-0 flex-grow flex flex-col justify-center items-center">
-                {isSaturday ? (
-                  <p className="text-sm font-semibold">סגור</p>
-                ) : hours?.is_closed ? (
-                  <p className="text-sm font-semibold flex items-center gap-1 text-red-600">
-                    <XCircle className="h-4 w-4" /> סגור
-                  </p>
-                ) : hours?.open_time && hours?.close_time ? (
-                  <p className="text-sm font-semibold flex items-center gap-1 text-green-600">
-                    <CheckCircle className="h-4 w-4" /> {hours.open_time} - {hours.close_time}
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">לא הוגדר</p>
-                )}
-              </CardContent>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleOpenDialog(dayOfWeek)} 
-                disabled={isSaturday}
-              >
-                <Edit className="ml-2 h-4 w-4" />
-                ערוך
-              </Button>
-            </Card>
-          );
-        })}
-      </div>
-
-      {selectedDayOfWeek !== null && warehouseId && (
+      {selectedDayOfWeek !== null && selectedStartTime && selectedEndTime && warehouseId && (
         <OperatingHoursDialog
           isOpen={isDialogOpen}
           onClose={handleCloseDialog}
           dayOfWeek={selectedDayOfWeek}
           warehouseId={warehouseId}
-          initialHours={initialDialogHours}
-          isWeekly={isWeeklyDialog}
+          slotStartTime={selectedStartTime}
+          slotEndTime={selectedEndTime}
+          initialSlot={initialDialogSlot}
         />
       )}
     </div>
