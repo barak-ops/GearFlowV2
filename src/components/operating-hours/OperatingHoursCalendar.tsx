@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { format, addMinutes, setHours, setMinutes, isBefore, isEqual } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, XCircle, CheckCircle, Info } from "lucide-react";
+import { Loader2, XCircle, CheckCircle, Info, Save } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Table,
@@ -41,11 +41,13 @@ const generateTimeSlots = () => {
   const slots = [];
   for (let hour = START_HOUR; hour < END_HOUR; hour++) {
     for (let minute = 0; minute < 60; minute += SLOT_DURATION_MINUTES) {
-      const start = setMinutes(setHours(new Date(), hour), minute);
-      const end = addMinutes(start, SLOT_DURATION_MINUTES);
+      const start = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+      const endHour = hour + Math.floor((minute + 30) / 60);
+      const endMinute = (minute + 30) % 60;
+      const end = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
       slots.push({
-        start: format(start, 'HH:mm'),
-        end: format(end, 'HH:mm'),
+        start,
+        end,
       });
     }
   }
@@ -74,9 +76,11 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
     enabled: !!warehouseId,
   });
 
-  const [gridState, setGridState] = useState<Record<string, TimeSlot>>({}); // Key: `${dayOfWeek}-${startTime}`
+  const [localGridState, setLocalGridState] = useState<Record<string, TimeSlot>>({}); // Key: `${dayOfWeek}-${startTime}`
   const [lastClickedSlot, setLastClickedSlot] = useState<{ day: number; time: string } | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Initialize localGridState from fetched data or defaults
   useEffect(() => {
     const initialState: Record<string, TimeSlot> = {};
     // Initialize default open slots for Sun-Thu, 9:00-17:00
@@ -113,61 +117,51 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
       const key = `${slot.day_of_week}-${slot.slot_start_time}`;
       initialState[key] = slot;
     });
-    setGridState(initialState);
+    setLocalGridState(initialState);
+    setHasUnsavedChanges(false); // No unsaved changes on initial load
   }, [fetchedTimeSlots, warehouseId]);
 
-  const updateSlotMutation = useMutation({
-    mutationFn: async (slotData: Partial<TimeSlot> & { day_of_week: number; slot_start_time: string; slot_end_time: string; warehouse_id: string }) => {
-      const { id, ...dataToSave } = slotData;
-      if (id) {
-        // Update existing slot
-        const { error } = await supabase
-          .from("warehouse_time_slots")
-          .update(dataToSave)
-          .eq("id", id);
-        if (error) throw error;
-      } else {
-        // Insert new slot
-        const { data, error } = await supabase
-          .from("warehouse_time_slots")
-          .insert(dataToSave)
-          .select('id')
-          .single();
-        if (error) throw error;
-        return data.id; // Return new ID
-      }
-      return id; // Return existing ID
-    },
-    onSuccess: (newId, variables) => {
-      showSuccess("משבצת הזמן עודכנה בהצלחה!");
-      queryClient.invalidateQueries({ queryKey: ["warehouse_time_slots", warehouseId] });
-      // Update local state with new ID if it was an insert
-      if (newId && !variables.id) {
-        setGridState(prev => ({
-          ...prev,
-          [`${variables.day_of_week}-${variables.slot_start_time}`]: { ...variables, id: newId } as TimeSlot
-        }));
-      }
-    },
-    onError: (error) => {
-      showError(`שגיאה בשמירת משבצת הזמן: ${error.message}`);
-    },
-  });
+  const saveChangesMutation = useMutation({
+    mutationFn: async (slotsToSave: TimeSlot[]) => {
+      const updates = slotsToSave.filter(s => s.id !== '');
+      const inserts = slotsToSave.filter(s => s.id === '');
 
-  const deleteSlotMutation = useMutation({
-    mutationFn: async (slotId: string) => {
-      const { error } = await supabase
-        .from("warehouse_time_slots")
-        .delete()
-        .eq("id", slotId);
-      if (error) throw error;
+      const promises = [];
+
+      if (updates.length > 0) {
+        // Perform bulk update for existing slots
+        promises.push(
+          Promise.all(updates.map(slot => 
+            supabase.from("warehouse_time_slots")
+              .update({ is_closed: slot.is_closed })
+              .eq("id", slot.id)
+          ))
+        );
+      }
+
+      if (inserts.length > 0) {
+        // Perform bulk insert for new slots
+        promises.push(
+          supabase.from("warehouse_time_slots")
+            .insert(inserts.map(slot => ({
+              warehouse_id: slot.warehouse_id,
+              day_of_week: slot.day_of_week,
+              slot_start_time: slot.slot_start_time,
+              slot_end_time: slot.slot_end_time,
+              is_closed: slot.is_closed,
+            })))
+        );
+      }
+      
+      await Promise.all(promises);
     },
     onSuccess: () => {
-      showSuccess("משבצת הזמן נמחקה בהצלחה!");
+      showSuccess("שינויים נשמרו בהצלחה!");
       queryClient.invalidateQueries({ queryKey: ["warehouse_time_slots", warehouseId] });
+      setHasUnsavedChanges(false);
     },
     onError: (error) => {
-      showError(`שגיאה במחיקת משבצת הזמן: ${error.message}`);
+      showError(`שגיאה בשמירת השינויים: ${error.message}`);
     },
   });
 
@@ -175,8 +169,10 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
     if (!isManagerOrStorageManager) return; // Only managers can edit
 
     const key = `${dayIndex}-${slotStartTime}`;
-    const currentSlot = gridState[key];
+    const currentSlot = localGridState[key];
     const newIsClosed = !currentSlot?.is_closed;
+
+    setHasUnsavedChanges(true);
 
     if (event.shiftKey && lastClickedSlot && lastClickedSlot.day === dayIndex) {
       // Shift-click for range selection
@@ -185,36 +181,52 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
 
       const [start, end] = [Math.min(startIndex, endIndex), Math.max(startIndex, endIndex)];
 
-      for (let i = start; i <= end; i++) {
-        const rangeSlot = timeSlots[i];
-        const rangeKey = `${dayIndex}-${rangeSlot.start}`;
-        const existingRangeSlot = gridState[rangeKey];
-
-        const slotData = {
-          id: existingRangeSlot?.id,
-          warehouse_id: warehouseId,
-          day_of_week: dayIndex,
-          slot_start_time: rangeSlot.start,
-          slot_end_time: rangeSlot.end,
-          is_closed: newIsClosed,
-        };
-        updateSlotMutation.mutate(slotData);
-      }
+      setLocalGridState(prev => {
+        const newState = { ...prev };
+        for (let i = start; i <= end; i++) {
+          const rangeSlot = timeSlots[i];
+          const rangeKey = `${dayIndex}-${rangeSlot.start}`;
+          newState[rangeKey] = {
+            ...newState[rangeKey],
+            warehouse_id: warehouseId,
+            day_of_week: dayIndex,
+            slot_start_time: rangeSlot.start,
+            slot_end_time: rangeSlot.end,
+            is_closed: newIsClosed,
+          };
+        }
+        return newState;
+      });
       setLastClickedSlot(null); // Reset after range selection
     } else {
       // Single click
-      const slotData = {
-        id: currentSlot?.id,
-        warehouse_id: warehouseId,
-        day_of_week: dayIndex,
-        slot_start_time: slotStartTime,
-        slot_end_time: slotEndTime,
-        is_closed: newIsClosed,
-      };
-      updateSlotMutation.mutate(slotData);
+      setLocalGridState(prev => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          warehouse_id: warehouseId,
+          day_of_week: dayIndex,
+          slot_start_time: slotStartTime,
+          slot_end_time: slotEndTime,
+          is_closed: newIsClosed,
+        },
+      }));
       setLastClickedSlot({ day: dayIndex, time: slotStartTime });
     }
-  }, [gridState, lastClickedSlot, warehouseId, updateSlotMutation, isManagerOrStorageManager]);
+  }, [localGridState, lastClickedSlot, warehouseId, isManagerOrStorageManager]);
+
+  const handleSave = () => {
+    const slotsToSave = Object.values(localGridState).filter(slot => {
+        // Only save slots that are different from the initial fetched state
+        const initialSlot = fetchedTimeSlots?.find(s => 
+            s.day_of_week === slot.day_of_week && 
+            s.slot_start_time === slot.slot_start_time && 
+            s.slot_end_time === slot.slot_end_time
+        );
+        return !initialSlot || initialSlot.is_closed !== slot.is_closed;
+    });
+    saveChangesMutation.mutate(slotsToSave);
+  };
 
   if (isLoading) {
     return (
@@ -281,14 +293,14 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
                     {dayNames.map((dayName, dayIndex) => {
                       const dayOfWeek = dayIndex;
                       const key = `${dayOfWeek}-${slot.start}`;
-                      const currentSlot = gridState[key];
+                      const currentSlot = localGridState[key];
                       const isSaturday = dayOfWeek === 6;
 
                       const cellClasses = cn(
-                        "h-8 p-0 border cursor-pointer flex items-center justify-center", // Reduced padding
+                        "h-8 p-0 border border-solid border-gray-200 hover:border-blue-500 cursor-pointer flex items-center justify-center", // Reduced padding
                         isSaturday ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "",
-                        !isSaturday && currentSlot?.is_closed ? "bg-gray-100 hover:bg-gray-200 border-gray-300" : "",
-                        !isSaturday && !currentSlot?.is_closed ? "bg-blue-100 hover:bg-blue-200 border-blue-300" : ""
+                        !isSaturday && currentSlot?.is_closed ? "bg-gray-100" : "",
+                        !isSaturday && !currentSlot?.is_closed ? "bg-blue-100" : ""
                       );
 
                       return (
@@ -309,6 +321,25 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
           </div>
         </CardContent>
       </Card>
+      {isManagerOrStorageManager && (
+        <Button 
+          onClick={handleSave} 
+          disabled={!hasUnsavedChanges || saveChangesMutation.isPending}
+          className="w-full mt-4"
+        >
+          {saveChangesMutation.isPending ? (
+            <>
+              <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              שומר שינויים...
+            </>
+          ) : (
+            <>
+              <Save className="ml-2 h-4 w-4" />
+              שמור שינויים
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }
