@@ -233,34 +233,36 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
 
   const handleSave = () => {
     const slotsToProcess: TimeSlot[] = [];
-    for (const key in localGridState) {
-      const localSlot = localGridState[key];
-      const fetchedSlot = fetchedTimeSlots?.find(s => 
-        s.day_of_week === localSlot.day_of_week && 
-        s.slot_start_time === localSlot.slot_start_time
-      );
+    for (let day = 0; day <= 6; day++) {
+      timeSlots.forEach(slot => {
+        const key = `${day}-${slot.start}`;
+        const localSlot = localGridState[key];
+        const fetchedSlot = fetchedTimeSlots?.find(s => 
+          s.day_of_week === localSlot.day_of_week && 
+          s.slot_start_time === localSlot.slot_start_time
+        );
 
-      // Determine if the local slot state is different from the *default* state
-      const isLocalStateDefault = localSlot.is_closed === isDefaultClosed(localSlot.day_of_week);
+        const isLocalStateDefault = isDefaultClosed(localSlot.day_of_week) === localSlot.is_closed;
 
-      if (fetchedSlot) {
-        // If there's a fetched slot, and its state is different from the local state
-        if (fetchedSlot.is_closed !== localSlot.is_closed) {
-          // If the local state is now default, we want to delete the fetched slot
-          if (isLocalStateDefault) {
-            slotsToProcess.push({ ...fetchedSlot, is_closed: localSlot.is_closed }); // Mark for deletion (by ID)
-          } else {
-            // Otherwise, update the existing slot
-            slotsToProcess.push({ ...localSlot, id: fetchedSlot.id });
+        if (fetchedSlot) {
+          // If there's a fetched slot, and its state is different from the local state
+          if (fetchedSlot.is_closed !== localSlot.is_closed) {
+            // If the local state is now default, we want to delete the fetched slot
+            if (isLocalStateDefault) {
+              slotsToProcess.push({ ...fetchedSlot, is_closed: localSlot.is_closed }); // Mark for deletion (by ID)
+            } else {
+              // Otherwise, update the existing slot
+              slotsToProcess.push({ ...localSlot, id: fetchedSlot.id });
+            }
+          }
+        } else {
+          // No fetched slot, meaning it's currently in its default state in DB (or doesn't exist)
+          // We only care if its local state is NOT the default state, then we insert it
+          if (!isLocalStateDefault) {
+            slotsToProcess.push(localSlot); // No ID, will be inserted
           }
         }
-      } else {
-        // No fetched slot, meaning it's currently in its default state in DB (or doesn't exist)
-        // We only care if its local state is NOT the default state, then we insert it
-        if (!isLocalStateDefault) {
-          slotsToProcess.push(localSlot); // No ID, will be inserted
-        }
-      }
+      });
     }
     saveChangesMutation.mutate(slotsToProcess);
   };
