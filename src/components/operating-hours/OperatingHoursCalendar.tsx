@@ -80,25 +80,15 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
   const [lastClickedSlot, setLastClickedSlot] = useState<{ day: number; time: string } | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+  // Helper to determine default closed status for a slot
+  const isDefaultClosed = useCallback((dayOfWeek: number) => {
+    return dayOfWeek === 5 || dayOfWeek === 6; // Friday and Saturday are default closed
+  }, []);
+
   // Initialize localGridState from fetched data or defaults
   useEffect(() => {
     const initialState: Record<string, TimeSlot> = {};
-    // Initialize default open slots for Sun-Thu, 9:00-17:00
-    for (let day = 0; day <= 4; day++) { // Sunday (0) to Thursday (4)
-      timeSlots.forEach(slot => {
-        const key = `${day}-${slot.start}`;
-        initialState[key] = {
-          id: '', // Placeholder, will be filled from fetched data or on insert
-          warehouse_id: warehouseId,
-          day_of_week: day,
-          slot_start_time: slot.start,
-          slot_end_time: slot.end,
-          is_closed: false, // Default to open
-        };
-      });
-    }
-    // Initialize default closed slots for Friday (5) and Saturday (6)
-    for (let day = 5; day <= 6; day++) { // Friday (5) to Saturday (6)
+    for (let day = 0; day <= 6; day++) {
       timeSlots.forEach(slot => {
         const key = `${day}-${slot.start}`;
         initialState[key] = {
@@ -107,7 +97,7 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
           day_of_week: day,
           slot_start_time: slot.start,
           slot_end_time: slot.end,
-          is_closed: true, // Default to closed
+          is_closed: isDefaultClosed(day), // Default based on day of week
         };
       });
     }
@@ -119,17 +109,42 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
     });
     setLocalGridState(initialState);
     setHasUnsavedChanges(false); // No unsaved changes on initial load
-  }, [fetchedTimeSlots, warehouseId]);
+  }, [fetchedTimeSlots, warehouseId, isDefaultClosed]);
 
   const saveChangesMutation = useMutation({
-    mutationFn: async (slotsToSave: TimeSlot[]) => {
-      const updates = slotsToSave.filter(s => s.id !== '');
-      const inserts = slotsToSave.filter(s => s.id === '');
+    mutationFn: async (slotsToProcess: TimeSlot[]) => {
+      const inserts = [];
+      const updates = [];
+      const deletes = [];
+
+      for (const slot of slotsToProcess) {
+        const isCurrentlyDefault = isDefaultClosed(slot.day_of_week);
+        const isChangingToDefault = slot.is_closed === isCurrentlyDefault;
+
+        if (slot.id) { // Existing slot
+          if (isChangingToDefault) {
+            deletes.push(slot.id); // Delete if it's reverting to default state
+          } else {
+            updates.push(slot); // Update if it's changing to a non-default state
+          }
+        } else { // New slot (no ID)
+          if (!isChangingToDefault) { // Only insert if it's not the default state
+            inserts.push(slot);
+          }
+        }
+      }
 
       const promises = [];
 
+      if (deletes.length > 0) {
+        promises.push(
+          supabase.from("warehouse_time_slots")
+            .delete()
+            .in("id", deletes)
+        );
+      }
+
       if (updates.length > 0) {
-        // Perform bulk update for existing slots
         promises.push(
           Promise.all(updates.map(slot => 
             supabase.from("warehouse_time_slots")
@@ -140,7 +155,6 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
       }
 
       if (inserts.length > 0) {
-        // Perform bulk insert for new slots
         promises.push(
           supabase.from("warehouse_time_slots")
             .insert(inserts.map(slot => ({
@@ -150,12 +164,14 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
               slot_end_time: slot.slot_end_time,
               is_closed: slot.is_closed,
             })))
+            .select('id, day_of_week, slot_start_time, is_closed') // Select relevant fields to update local state
         );
       }
       
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+      return results;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       showSuccess("שינויים נשמרו בהצלחה!");
       queryClient.invalidateQueries({ queryKey: ["warehouse_time_slots", warehouseId] });
       setHasUnsavedChanges(false);
@@ -216,16 +232,28 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
   }, [localGridState, lastClickedSlot, warehouseId, isManagerOrStorageManager]);
 
   const handleSave = () => {
-    const slotsToSave = Object.values(localGridState).filter(slot => {
-        // Only save slots that are different from the initial fetched state
-        const initialSlot = fetchedTimeSlots?.find(s => 
-            s.day_of_week === slot.day_of_week && 
-            s.slot_start_time === slot.slot_start_time && 
-            s.slot_end_time === slot.slot_end_time
-        );
-        return !initialSlot || initialSlot.is_closed !== slot.is_closed;
-    });
-    saveChangesMutation.mutate(slotsToSave);
+    const slotsToProcess: TimeSlot[] = [];
+    for (const key in localGridState) {
+      const localSlot = localGridState[key];
+      const fetchedSlot = fetchedTimeSlots?.find(s => 
+        s.day_of_week === localSlot.day_of_week && 
+        s.slot_start_time === localSlot.slot_start_time
+      );
+
+      // If there's a change from fetched state, or it's a new non-default slot
+      if (fetchedSlot) {
+        if (fetchedSlot.is_closed !== localSlot.is_closed) {
+          slotsToProcess.push({ ...localSlot, id: fetchedSlot.id }); // Include ID for update/delete
+        }
+      } else {
+        // This is a slot that was not fetched (meaning it's currently in its default state in DB, or doesn't exist)
+        // We only care if its local state is NOT the default state
+        if (localSlot.is_closed !== isDefaultClosed(localSlot.day_of_week)) {
+          slotsToProcess.push(localSlot); // No ID, will be inserted
+        }
+      }
+    }
+    saveChangesMutation.mutate(slotsToProcess);
   };
 
   if (isLoading) {
