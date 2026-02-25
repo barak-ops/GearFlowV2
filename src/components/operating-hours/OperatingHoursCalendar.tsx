@@ -109,7 +109,7 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
     });
     setLocalGridState(initialState);
     setHasUnsavedChanges(false); // No unsaved changes on initial load
-  }, [fetchedTimeSlots, warehouseId, isDefaultClosed]);
+  }, [fetchedTimeSlots, warehouseId, isDefaultClosed]); // Re-run when fetchedTimeSlots changes
 
   const saveChangesMutation = useMutation({
     mutationFn: async (slotsToProcess: TimeSlot[]) => {
@@ -240,15 +240,24 @@ export function OperatingHoursCalendar({ warehouseId }: OperatingHoursCalendarPr
         s.slot_start_time === localSlot.slot_start_time
       );
 
-      // If there's a change from fetched state, or it's a new non-default slot
+      // Determine if the local slot state is different from the *default* state
+      const isLocalStateDefault = localSlot.is_closed === isDefaultClosed(localSlot.day_of_week);
+
       if (fetchedSlot) {
+        // If there's a fetched slot, and its state is different from the local state
         if (fetchedSlot.is_closed !== localSlot.is_closed) {
-          slotsToProcess.push({ ...localSlot, id: fetchedSlot.id }); // Include ID for update/delete
+          // If the local state is now default, we want to delete the fetched slot
+          if (isLocalStateDefault) {
+            slotsToProcess.push({ ...fetchedSlot, is_closed: localSlot.is_closed }); // Mark for deletion (by ID)
+          } else {
+            // Otherwise, update the existing slot
+            slotsToProcess.push({ ...localSlot, id: fetchedSlot.id });
+          }
         }
       } else {
-        // This is a slot that was not fetched (meaning it's currently in its default state in DB, or doesn't exist)
-        // We only care if its local state is NOT the default state
-        if (localSlot.is_closed !== isDefaultClosed(localSlot.day_of_week)) {
+        // No fetched slot, meaning it's currently in its default state in DB (or doesn't exist)
+        // We only care if its local state is NOT the default state, then we insert it
+        if (!isLocalStateDefault) {
           slotsToProcess.push(localSlot); // No ID, will be inserted
         }
       }
