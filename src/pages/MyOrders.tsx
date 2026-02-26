@@ -204,7 +204,7 @@ const MyOrders = () => {
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
       <Tabs defaultValue="today_actions" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 h-auto">
+        <TabsList className="grid w-full grid-cols-6 h-auto" dir="rtl"> {/* Added dir="rtl" here */}
           <TabsTrigger value="today_actions" className="py-2">היום ({todayActionsOrders.length})</TabsTrigger>
           <TabsTrigger value="currently_borrowed" className="py-2">בהשאלה ({currentlyBorrowedOrders.length})</TabsTrigger>
           <TabsTrigger value="pending" className="py-2">ממתינות ({pendingOrders.length})</TabsTrigger>
