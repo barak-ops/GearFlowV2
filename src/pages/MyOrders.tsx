@@ -213,40 +213,40 @@ const MyOrders = () => {
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
       <Tabs defaultValue="today_actions" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 h-auto bg-transparent p-0" dir="rtl">
+        <TabsList className="grid w-full grid-cols-6 h-auto bg-gray-100 p-0 rounded-lg overflow-hidden border border-gray-200" dir="rtl">
           <TabsTrigger 
             value="today_actions" 
-            className="py-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-none"
+            className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
             היום ({todayActionsOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="currently_borrowed" 
-            className="py-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-none"
+            className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
             בהשאלה ({currentlyBorrowedOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="pending" 
-            className="py-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-none"
+            className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
             ממתינות ({pendingOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="future" 
-            className="py-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-none"
+            className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
             עתידיות ({futureOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="past" 
-            className="py-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-none"
+            className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
             היסטוריה ({pastOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="cancelled_rejected" 
-            className="py-2 border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary rounded-none"
+            className="py-2 px-4 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
             בוטלו/נדחו ({cancelledRejectedOrders.length})
           </TabsTrigger>
