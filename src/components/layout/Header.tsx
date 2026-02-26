@@ -193,10 +193,7 @@ export const Header = () => {
               <PlusCircle className="h-5 w-5" />
               הזמנה חדשה
             </Link>
-            <Link to="/catalog" className={`flex items-center gap-1 ${hoverClasses}`}>
-              <Package className="h-5 w-5" />
-              קטלוג ציוד
-            </Link>
+            {/* Removed the Equipment Catalog link for students */}
             <Link to="/my-orders" className={`flex items-center gap-1 ${hoverClasses}`}>
               <ListOrdered className="h-5 w-5" />
               ההזמנות שלי
