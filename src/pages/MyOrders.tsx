@@ -104,9 +104,10 @@ const MyOrders = () => {
 
   const now = new Date();
 
-  const futureOrders = orders?.filter(order => {
+  const todayActionsOrders = orders?.filter(order => {
     const startDate = new Date(order.requested_start_date);
-    return isFuture(startDate, { now }) && order.status === 'approved';
+    const endDate = new Date(order.requested_end_date);
+    return (isToday(startDate) && order.status === 'approved') || (isToday(endDate) && order.status === 'checked_out');
   }) || [];
 
   const currentlyBorrowedOrders = orders?.filter(order => {
@@ -115,18 +116,17 @@ const MyOrders = () => {
     return (isBefore(startDate, now) || isEqual(startDate, now)) && (isFuture(endDate, now) || isEqual(endDate, now)) && order.status === 'checked_out';
   }) || [];
 
-  const todayActionsOrders = orders?.filter(order => {
+  const pendingOrders = orders?.filter(order => order.status === 'pending') || [];
+
+  const futureOrders = orders?.filter(order => {
     const startDate = new Date(order.requested_start_date);
-    const endDate = new Date(order.requested_end_date);
-    return (isToday(startDate) && order.status === 'approved') || (isToday(endDate) && order.status === 'checked_out');
+    return isFuture(startDate, { now }) && order.status === 'approved';
   }) || [];
 
   const pastOrders = orders?.filter(order => {
     const endDate = new Date(order.requested_end_date);
     return isPast(endDate, { now }) && (order.status === 'returned' || order.status === 'checked_out');
   }) || [];
-
-  const pendingOrders = orders?.filter(order => order.status === 'pending') || [];
 
   const cancelledRejectedOrders = orders?.filter(order => order.status === 'cancelled' || order.status === 'rejected') || [];
 
@@ -203,29 +203,29 @@ const MyOrders = () => {
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
-      <Tabs defaultValue="currently_borrowed" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="currently_borrowed">בהשאלה ({currentlyBorrowedOrders.length})</TabsTrigger>
-          <TabsTrigger value="today_actions">היום ({todayActionsOrders.length})</TabsTrigger>
-          <TabsTrigger value="future">עתידיות ({futureOrders.length})</TabsTrigger>
-          <TabsTrigger value="past">היסטוריה ({pastOrders.length})</TabsTrigger>
-          <TabsTrigger value="pending">ממתינות ({pendingOrders.length})</TabsTrigger>
-          <TabsTrigger value="cancelled_rejected">בוטלו/נדחו ({cancelledRejectedOrders.length})</TabsTrigger>
+      <Tabs defaultValue="today_actions" className="w-full">
+        <TabsList className="grid w-full grid-cols-6 h-auto">
+          <TabsTrigger value="today_actions" className="py-2">היום ({todayActionsOrders.length})</TabsTrigger>
+          <TabsTrigger value="currently_borrowed" className="py-2">בהשאלה ({currentlyBorrowedOrders.length})</TabsTrigger>
+          <TabsTrigger value="pending" className="py-2">ממתינות ({pendingOrders.length})</TabsTrigger>
+          <TabsTrigger value="future" className="py-2">עתידיות ({futureOrders.length})</TabsTrigger>
+          <TabsTrigger value="past" className="py-2 text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-gray-100">היסטוריה ({pastOrders.length})</TabsTrigger>
+          <TabsTrigger value="cancelled_rejected" className="py-2 text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-gray-100">בוטלו/נדחו ({cancelledRejectedOrders.length})</TabsTrigger>
         </TabsList>
+        <TabsContent value="today_actions">
+          {renderOrderTable(todayActionsOrders)}
+        </TabsContent>
         <TabsContent value="currently_borrowed">
           {renderOrderTable(currentlyBorrowedOrders)}
         </TabsContent>
-        <TabsContent value="today_actions">
-          {renderOrderTable(todayActionsOrders)}
+        <TabsContent value="pending">
+          {renderOrderTable(pendingOrders)}
         </TabsContent>
         <TabsContent value="future">
           {renderOrderTable(futureOrders)}
         </TabsContent>
         <TabsContent value="past">
           {renderOrderTable(pastOrders)}
-        </TabsContent>
-        <TabsContent value="pending">
-          {renderOrderTable(pendingOrders)}
         </TabsContent>
         <TabsContent value="cancelled_rejected">
           {renderOrderTable(cancelledRejectedOrders)}
