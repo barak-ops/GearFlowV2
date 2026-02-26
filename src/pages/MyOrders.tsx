@@ -144,27 +144,23 @@ const MyOrders = () => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>תאריך יצירה</TableHead>
+            <TableHead className="text-right">הזמנה</TableHead> {/* Renamed from פעולות */}
             <TableHead>תאריך התחלה</TableHead>
             <TableHead>תאריך סיום</TableHead>
-            <TableHead>סטטוס</TableHead>
             <TableHead>מחזוריות</TableHead>
             <TableHead>הערות</TableHead>
-            <TableHead className="text-right">פעולות</TableHead>
+            <TableHead>תאריך יצירה</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {ordersToDisplay.length > 0 ? (
             ordersToDisplay.map((order) => (
               <TableRow key={order.id}>
-                <TableCell>{format(new Date(order.created_at), "PPP", { locale: he })}</TableCell>
+                <TableCell className="text-right">
+                    <OrderDetailsDialog orderId={order.id} userName={`${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim()} />
+                </TableCell>
                 <TableCell>{format(new Date(order.requested_start_date), "PPP", { locale: he })}</TableCell>
                 <TableCell>{format(new Date(order.requested_end_date), "PPP", { locale: he })}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={`border-transparent text-white ${statusColors[order.status]}`}>
-                    {statusTranslations[order.status]}
-                  </Badge>
-                </TableCell>
                 <TableCell>
                     {order.is_recurring && order.recurrence_count && order.recurrence_interval ? (
                         <Badge variant="secondary">
@@ -192,14 +188,12 @@ const MyOrders = () => {
                     <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
-                    <OrderDetailsDialog orderId={order.id} userName={`${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim()} />
-                </TableCell>
+                <TableCell>{format(new Date(order.created_at), "PPP", { locale: he })}</TableCell>
               </TableRow>
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={7} className="text-center p-8 text-muted-foreground">
+              <TableCell colSpan={6} className="text-center p-8 text-muted-foreground">
                 לא נמצאו הזמנות בקטגוריה זו.
               </TableCell>
             </TableRow>
@@ -230,19 +224,19 @@ const MyOrders = () => {
             value="pending" 
             className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
-            ממתינות ({pendingOrders.length})
+            ממתינות (במצב בקשה) ({pendingOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="future" 
             className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
-            עתידיות ({futureOrders.length})
+            עתידיות (הזמנות מאושרות) ({futureOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="past" 
             className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
-            היסטוריה ({pastOrders.length})
+            היסטוריה (הזמנות מהעבר) ({pastOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="cancelled_rejected" 
