@@ -144,7 +144,7 @@ const MyOrders = () => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="text-right">הזמנה</TableHead> {/* Renamed from פעולות */}
+            <TableHead className="text-right">הזמנה</TableHead>
             <TableHead>תאריך התחלה</TableHead>
             <TableHead>תאריך סיום</TableHead>
             <TableHead>מחזוריות</TableHead>
@@ -224,19 +224,19 @@ const MyOrders = () => {
             value="pending" 
             className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
-            ממתינות (במצב בקשה) ({pendingOrders.length})
+            מצב בקשה ({pendingOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="future" 
             className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
-            עתידיות (הזמנות מאושרות) ({futureOrders.length})
+            הזמנות מאושרות ({futureOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="past" 
             className="py-2 px-4 border-l border-gray-200 last:border-l-0 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm data-[state=active]:border-b-0 hover:bg-blue-50 transition-colors"
           >
-            היסטוריה (הזמנות מהעבר) ({pastOrders.length})
+            הזמנות עבר ({pastOrders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="cancelled_rejected" 
