@@ -20,6 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const setupSchema = z.object({
   first_name: z.string().min(2, "שם פרטי חובה."),
   last_name: z.string().min(2, "שם משפחה חובה."),
+  faculty: z.string().optional(), // Added faculty field
 });
 
 export function ProfileSetupForm() {
@@ -31,6 +32,7 @@ export function ProfileSetupForm() {
     defaultValues: {
       first_name: "",
       last_name: "",
+      faculty: "", // Default value for faculty
     },
   });
 
@@ -50,6 +52,7 @@ export function ProfileSetupForm() {
           role: role,
           updated_at: new Date().toISOString(), // Ensure updated_at is set
           warehouse_id: null, // New users default to no warehouse
+          faculty: values.faculty, // Save faculty
         }, { onConflict: 'id' }); // Conflict on 'id' means update if exists
       
       if (error) throw error;
@@ -100,6 +103,19 @@ export function ProfileSetupForm() {
                   <FormLabel>שם משפחה</FormLabel>
                   <FormControl>
                     <Input placeholder="שם משפחה" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="faculty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>פקולטה (אופציונלי)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="לדוגמה: הנדסה, אמנות" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -70,6 +70,7 @@ export function UserTable({ users }: UserTableProps) {
           <TableHead>שם מלא</TableHead>
           <TableHead>אימייל</TableHead>
           <TableHead>מחסן משויך</TableHead>
+          <TableHead>פקולטה</TableHead> {/* New TableHead for faculty */}
           <TableHead className="text-right">תפקיד</TableHead>
           <TableHead className="text-right">פעולות</TableHead>
         </TableRow>
@@ -88,6 +89,7 @@ export function UserTable({ users }: UserTableProps) {
                     <span className="text-muted-foreground text-xs">ללא מחסן</span>
                 )}
             </TableCell>
+            <TableCell>{user.faculty || '-'}</TableCell> {/* Display faculty */}
             <TableCell className="text-right">
               <Select 
                 onValueChange={(value) => handleRoleChange(user.id, value, user.warehouse_id)} 
@@ -98,9 +100,9 @@ export function UserTable({ users }: UserTableProps) {
                   <SelectValue placeholder="בחר תפקיד" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="student">{roleTranslations.student}</SelectItem>
-                  <SelectItem value="manager">{roleTranslations.manager}</SelectItem>
-                  <SelectItem value="storage_manager">{roleTranslations.storage_manager}</SelectItem>
+                  <SelectItem value="student">סטודנט</SelectItem>
+                  <SelectItem value="manager">מנהל</SelectItem>
+                  <SelectItem value="storage_manager">מנהל מחסן</SelectItem>
                 </SelectContent>
               </Select>
             </TableCell>

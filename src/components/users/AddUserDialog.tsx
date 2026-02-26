@@ -42,6 +42,7 @@ const userSchema = z.object({
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים."),
   role: z.enum(['student', 'manager', 'storage_manager']), // Added storage_manager
   warehouse_id: z.string().optional(), // Changed to optional string
+  faculty: z.string().optional(), // Added faculty field
 });
 
 const fetchWarehouses = async () => {
@@ -69,6 +70,7 @@ export function AddUserDialog() {
       password: "",
       role: "student", // Default role
       warehouse_id: "none", // Default to "none" for the select component
+      faculty: "", // Default value for faculty
     },
   });
 
@@ -91,6 +93,7 @@ export function AddUserDialog() {
         body: JSON.stringify({
             ...values,
             warehouse_id: warehouseIdToSave, // Use the determined warehouse_id
+            faculty: values.faculty, // Pass faculty to the Edge Function
         }),
       });
 
@@ -231,6 +234,19 @@ export function AddUserDialog() {
                 )}
                 />
             )}
+            <FormField
+              control={form.control}
+              name="faculty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>פקולטה (אופציונלי)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="לדוגמה: הנדסה, אמנות" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? "יוצר משתמש..." : "צור משתמש"}

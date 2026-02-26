@@ -45,6 +45,7 @@ const editUserSchema = z.object({
   password: z.string().min(6, "סיסמה חייבת להכיל לפחות 6 תווים.").optional().or(z.literal('')),
   role: z.enum(['student', 'manager', 'storage_manager']),
   warehouse_id: z.string().optional(), // Changed to optional string
+  faculty: z.string().optional(), // Added faculty field
 });
 
 interface EditUserDialogProps {
@@ -76,6 +77,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
       password: "",
       role: user.role,
       warehouse_id: user.warehouse_id || "none", // Default to "none" for the select component
+      faculty: user.faculty || "", // Default value for faculty
     },
   });
 
@@ -98,6 +100,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
             last_name: values.last_name,
             role: values.role,
             warehouse_id: warehouseIdToSave, // Use the determined warehouse_id
+            faculty: values.faculty, // Update faculty
             updated_at: new Date().toISOString(),
         })
         .eq("id", user.id);
@@ -152,6 +155,7 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
         password: "",
         role: user.role,
         warehouse_id: user.warehouse_id || "none",
+        faculty: user.faculty || "",
       });
     }
     setIsOpen(open);
@@ -271,6 +275,19 @@ export function EditUserDialog({ user }: EditUserDialogProps) {
                 <FormMessage />
                 </FormItem>
             )}
+            />
+            <FormField
+              control={form.control}
+              name="faculty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>פקולטה (אופציונלי)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="לדוגמה: הנדסה, אמנות" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
             <DialogFooter>
               <Button type="submit" disabled={mutation.isPending}>

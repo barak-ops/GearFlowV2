@@ -11,6 +11,7 @@ export interface Profile {
   updated_at: string | null;
   warehouse_id: string | null;
   warehouses?: { name: string } | null;
+  faculty: string | null; // Added faculty field
 }
 
 interface ProfileResult extends Profile {
@@ -28,7 +29,8 @@ const fetchProfile = async (userId: string): Promise<ProfileResult> => {
             avatar_url, 
             updated_at, 
             warehouse_id,
-            warehouses ( name )
+            warehouses ( name ),
+            faculty
         `)
         .eq('id', userId)
         .single();
@@ -45,6 +47,7 @@ const fetchProfile = async (userId: string): Promise<ProfileResult> => {
                 updated_at: null,
                 warehouse_id: null,
                 isMissing: true,
+                faculty: null,
              };
         }
         throw new Error(error.message);

@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { UserTable } from "@/components/users/UserTable";
 import { Profile } from "@/hooks/useProfile";
 import { AddUserDialog } from "@/components/users/AddUserDialog";
 import { useSession } from "@/contexts/SessionContext";
 import { useProfile } from "@/hooks/useProfile"; // Import useProfile
+import { Input } from "@/components/ui/input";
+import { useState, useMemo } from "react";
 
 const GET_USERS_FUNCTION_URL = "https://nbndaiaipjpjjbmoryuc.supabase.co/functions/v1/get-users";
 
@@ -49,11 +51,24 @@ const UserManagement = () => {
   const userRole = profile?.role;
   const userWarehouseId = profile?.warehouse_id;
 
+  const [searchTerm, setSearchTerm] = useState('');
+
   const { data: profiles, isLoading, error } = useQuery({
     queryKey: ["profiles", userRole, userWarehouseId],
     queryFn: () => fetchAllProfiles(session!.access_token, userRole, userWarehouseId),
     enabled: !!session && !profileLoading,
   });
+
+  const filteredProfiles = useMemo(() => {
+    if (!profiles) return [];
+    if (!searchTerm) return profiles;
+
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    return profiles.filter(user => 
+      user.first_name?.toLowerCase().startsWith(lowerCaseSearchTerm) ||
+      user.last_name?.toLowerCase().startsWith(lowerCaseSearchTerm)
+    );
+  }, [profiles, searchTerm]);
 
   if (isLoading || profileLoading) {
     return (
@@ -83,11 +98,22 @@ const UserManagement = () => {
         <h1 className="text-3xl font-bold">ניהול משתמשים והרשאות</h1>
         <AddUserDialog />
       </div>
+      
+      <div className="relative mb-6 max-w-sm">
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="חפש משתמש לפי שם פרטי או שם משפחה..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pr-10"
+        />
+      </div>
+
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-        {profiles && profiles.length > 0 ? (
-          <UserTable users={profiles} />
+        {filteredProfiles && filteredProfiles.length > 0 ? (
+          <UserTable users={filteredProfiles} />
         ) : (
-          <p className="text-center p-8 text-muted-foreground">לא נמצאו משתמשים במערכת.</p>
+          <p className="text-center p-8 text-muted-foreground">לא נמצאו משתמשים התואמים לחיפוש.</p>
         )}
       </div>
     </div>

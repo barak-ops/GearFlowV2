@@ -35,7 +35,6 @@ serve(async (req) => {
       });
     }
 
-    // Initialize Supabase client with the anon key and the user's JWT
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
