@@ -141,15 +141,15 @@ const MyOrders = () => {
 
   const renderOrderTable = (ordersToDisplay: Order[]) => (
     <div className="bg-white rounded-lg shadow overflow-x-auto">
-      <Table>
+      <Table dir="rtl"> {/* Added dir="rtl" here */}
         <TableHeader>
           <TableRow>
             <TableHead className="text-right">הזמנה</TableHead>
-            <TableHead>תאריך התחלה</TableHead>
-            <TableHead>תאריך סיום</TableHead>
-            <TableHead>מחזוריות</TableHead>
-            <TableHead>הערות</TableHead>
-            <TableHead>תאריך יצירה</TableHead>
+            <TableHead className="text-right">תאריך התחלה</TableHead>
+            <TableHead className="text-right">תאריך סיום</TableHead>
+            <TableHead className="text-right">מחזוריות</TableHead>
+            <TableHead className="text-right">הערות</TableHead>
+            <TableHead className="text-right">תאריך יצירה</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -159,9 +159,9 @@ const MyOrders = () => {
                 <TableCell className="text-right">
                     <OrderDetailsDialog orderId={order.id} userName={`${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim()} />
                 </TableCell>
-                <TableCell>{format(new Date(order.requested_start_date), "PPP", { locale: he })}</TableCell>
-                <TableCell>{format(new Date(order.requested_end_date), "PPP", { locale: he })}</TableCell>
-                <TableCell>
+                <TableCell className="text-right">{format(new Date(order.requested_start_date), "PPP", { locale: he })}</TableCell>
+                <TableCell className="text-right">{format(new Date(order.requested_end_date), "PPP", { locale: he })}</TableCell>
+                <TableCell className="text-right">
                     {order.is_recurring && order.recurrence_count && order.recurrence_interval ? (
                         <Badge variant="secondary">
                             {order.recurrence_count} פעמים, {recurrenceIntervalTranslations[order.recurrence_interval]}
@@ -170,7 +170,7 @@ const MyOrders = () => {
                         <span className="text-muted-foreground">-</span>
                     )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-right">
                   {order.notes ? (
                     <TooltipProvider>
                       <Tooltip>
@@ -188,7 +188,7 @@ const MyOrders = () => {
                     <span className="text-muted-foreground">-</span>
                   )}
                 </TableCell>
-                <TableCell>{format(new Date(order.created_at), "PPP", { locale: he })}</TableCell>
+                <TableCell className="text-right">{format(new Date(order.created_at), "PPP", { locale: he })}</TableCell>
               </TableRow>
             ))
           ) : (
