@@ -17,13 +17,24 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("[notify_user_on_order_approved] Missing Supabase environment variables.");
+      return new Response(JSON.stringify({ error: 'Missing Supabase environment variables.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload = await req.json();
     const newOrder = payload.record; // The new or updated order record
+    const oldOrder = payload.old_record; // The old order record
 
-    if (newOrder && newOrder.status === 'approved') {
-      console.log(`[notify_user_on_order_approved] Order ${newOrder.id} approved. Notifying user ${newOrder.user_id}.`);
+    console.log("[notify_user_on_order_approved] Payload received:", JSON.stringify(payload));
+
+    if (newOrder && newOrder.status === 'approved' && oldOrder?.status !== 'approved') {
+      console.log(`[notify_user_on_order_approved] Order ${newOrder.id} status changed to 'approved'. Notifying user ${newOrder.user_id}.`);
 
       const { data: profile, error: profileError } = await adminClient
         .from('profiles')
@@ -33,10 +44,15 @@ serve(async (req) => {
 
       if (profileError) {
         console.error("[notify_user_on_order_approved] Error fetching user profile:", profileError);
-        throw profileError;
+        // Do not throw error here, just log it, as notification is secondary
+        // return new Response(JSON.stringify({ error: 'Error fetching user profile for notification' }), {
+        //   status: 500,
+        //   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        // });
       }
 
       const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'המשתמש';
+      console.log(`[notify_user_on_order_approved] User name for notification: ${userName}`);
 
       const { error: insertError } = await adminClient
         .from('notifications')
@@ -49,12 +65,16 @@ serve(async (req) => {
 
       if (insertError) {
         console.error("[notify_user_on_order_approved] Error inserting notification:", insertError);
-        throw insertError;
+        // Do not throw error here, just log it, as notification is secondary
+        // return new Response(JSON.stringify({ error: 'Error inserting notification' }), {
+        //   status: 500,
+        //   headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        // });
+      } else {
+        console.log(`[notify_user_on_order_approved] Notification sent for order ${newOrder.id}.`);
       }
-
-      console.log(`[notify_user_on_order_approved] Notification sent for order ${newOrder.id}.`);
     } else {
-      console.log("[notify_user_on_order_approved] Order status not 'approved' or no new order record. Skipping notification.");
+      console.log("[notify_user_on_order_approved] Order status not 'approved' or old status was already 'approved'. Skipping notification.");
     }
 
     return new Response(JSON.stringify({ message: 'Notification process completed' }), {
@@ -63,7 +83,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("[notify_user_on_order_approved] Unexpected error:", error.message);
+    console.error("[notify_user_on_order_approved] Unexpected error in Edge Function:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
