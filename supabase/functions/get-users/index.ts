@@ -18,6 +18,14 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      console.error("[get-users] Missing Supabase environment variables.");
+      return new Response(JSON.stringify({ error: 'Missing Supabase environment variables.' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error("[get-users] Missing Authorization header");
@@ -27,6 +35,7 @@ serve(async (req) => {
       });
     }
 
+    // Initialize Supabase client with the anon key and the user's JWT
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } }
     });
@@ -34,7 +43,7 @@ serve(async (req) => {
     // Verify the user is a manager or storage_manager
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      console.error("[get-users] Auth error", userError);
+      console.error("[get-users] Auth error:", userError?.message || "User not found");
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -47,8 +56,16 @@ serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    if (profileError || (profile?.role !== 'manager' && profile?.role !== 'storage_manager')) {
-      console.error("[get-users] Forbidden access", profile?.role);
+    if (profileError) {
+      console.error("[get-users] Error fetching user profile:", profileError.message);
+      return new Response(JSON.stringify({ error: 'Error fetching user profile' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (profile?.role !== 'manager' && profile?.role !== 'storage_manager') {
+      console.error("[get-users] Forbidden access: User role is", profile?.role);
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -60,7 +77,7 @@ serve(async (req) => {
     
     let profilesQuery = adminClient
       .from('profiles')
-      .select('*, warehouses(name)');
+      .select('*, warehouses(name), faculty'); // Include faculty in the select statement
     
     // If the current user is a storage manager, filter profiles by their warehouse_id
     if (profile.role === 'storage_manager' && profile.warehouse_id) {
@@ -69,11 +86,23 @@ serve(async (req) => {
 
     const { data: profiles, error: profilesError } = await profilesQuery;
     
-    if (profilesError) throw profilesError;
+    if (profilesError) {
+      console.error("[get-users] Error fetching profiles with admin client:", profilesError.message);
+      return new Response(JSON.stringify({ error: `Error fetching profiles: ${profilesError.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Fetch auth users to merge email
     const { data: { users: authUsers }, error: authUsersError } = await adminClient.auth.admin.listUsers();
-    if (authUsersError) throw authUsersError;
+    if (authUsersError) {
+      console.error("[get-users] Error listing auth users with admin client:", authUsersError.message);
+      return new Response(JSON.stringify({ error: `Error listing auth users: ${authUsersError.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Merge auth data (email) with profile data
     const mergedUsers = profiles.map(p => {
@@ -90,7 +119,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("[get-users] Unexpected error", error);
+    console.error("[get-users] Unexpected error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       ,status: 400,
