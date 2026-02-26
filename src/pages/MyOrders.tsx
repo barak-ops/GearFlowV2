@@ -19,6 +19,7 @@ import { FileText } from "lucide-react";
 import { OrderDetailsDialog } from "@/components/orders/OrderDetailsDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import React from "react";
+import { useProfile } from "@/hooks/useProfile"; // Import useProfile hook
 
 interface Order {
   id: string;
@@ -60,10 +61,12 @@ const recurrenceIntervalTranslations: Record<string, string> = {
 
 const MyOrders = () => {
   const { user } = useSession();
+  const { profile, loading: profileLoading } = useProfile(); // Get user profile
 
   const fetchOrders = async () => {
-    if (!user) return [];
-    const { data, error } = await supabase
+    if (!user || profileLoading) return []; // Wait for profile to load
+    
+    let query = supabase
       .from("orders")
       .select(`
         id,
@@ -78,19 +81,25 @@ const MyOrders = () => {
         warehouse_id,
         profiles ( first_name, last_name )
       `)
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .eq("user_id", user.id);
+
+    // If the user is a student and has a warehouse_id, filter by it
+    if (profile?.role === 'student' && profile.warehouse_id) {
+      query = query.eq('warehouse_id', profile.warehouse_id);
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data;
   };
 
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ["my-orders"],
+    queryKey: ["my-orders", user?.id, profile?.warehouse_id], // Add profile.warehouse_id to query key
     queryFn: fetchOrders,
-    enabled: !!user,
+    enabled: !!user && !profileLoading, // Enable query only when user and profile are loaded
   });
 
-  if (isLoading) {
+  if (isLoading || profileLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-16 w-16 animate-spin" />
@@ -204,7 +213,7 @@ const MyOrders = () => {
     <div className="p-8">
       <h1 className="text-3xl font-bold mb-8">ההזמנות שלי</h1>
       <Tabs defaultValue="today_actions" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 h-auto" dir="rtl"> {/* Added dir="rtl" here */}
+        <TabsList className="grid w-full grid-cols-6 h-auto" dir="rtl">
           <TabsTrigger value="today_actions" className="py-2">היום ({todayActionsOrders.length})</TabsTrigger>
           <TabsTrigger value="currently_borrowed" className="py-2">בהשאלה ({currentlyBorrowedOrders.length})</TabsTrigger>
           <TabsTrigger value="pending" className="py-2">ממתינות ({pendingOrders.length})</TabsTrigger>
