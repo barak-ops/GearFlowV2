@@ -1,0 +1,4 @@
+-- Add RLS policy for managers to update orders
+CREATE POLICY "Managers can update all orders" ON public.orders
+FOR UPDATE TO authenticated
+USING (EXISTS ( SELECT 1 FROM public.profiles WHERE (profiles.id = auth.uid()) AND (profiles.role = 'manager'::text)));
