@@ -209,8 +209,18 @@ const MyOrders = () => {
           <TabsTrigger value="currently_borrowed" className="py-2">בהשאלה ({currentlyBorrowedOrders.length})</TabsTrigger>
           <TabsTrigger value="pending" className="py-2">ממתינות ({pendingOrders.length})</TabsTrigger>
           <TabsTrigger value="future" className="py-2">עתידיות ({futureOrders.length})</TabsTrigger>
-          <TabsTrigger value="past" className="py-2 text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-gray-100">היסטוריה ({pastOrders.length})</TabsTrigger>
-          <TabsTrigger value="cancelled_rejected" className="py-2 text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-gray-100">בוטלו/נדחו ({cancelledRejectedOrders.length})</TabsTrigger>
+          <TabsTrigger 
+            value="past" 
+            className="py-2 text-muted-foreground data-[state=active]:bg-gray-200 data-[state=active]:text-gray-700"
+          >
+            היסטוריה ({pastOrders.length})
+          </TabsTrigger>
+          <TabsTrigger 
+            value="cancelled_rejected" 
+            className="py-2 text-muted-foreground data-[state=active]:bg-gray-200 data-[state=active]:text-gray-700"
+          >
+            בוטלו/נדחו ({cancelledRejectedOrders.length})
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="today_actions">
           {renderOrderTable(todayActionsOrders)}
